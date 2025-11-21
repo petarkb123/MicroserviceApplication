@@ -1,6 +1,0 @@
-# Local development configuration template
-# Copy this file to application-local.properties and fill in your local database credentials
-# application-local.properties is ignored by git and will not be committed
-
-spring.datasource.username=root
-spring.datasource.password=your_password_here
