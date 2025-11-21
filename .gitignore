@@ -47,11 +47,10 @@ application-prod.properties
 *.env
 .env
 
-# Spring Boot
-application-*.properties
-!application.properties
-
-# Allow application.properties but not local/dev/prod variants
+# Spring Boot - Allow example files but not actual local/dev/prod configs
 application-local.properties
 application-dev.properties
 application-prod.properties
+!application-local.properties.example
+!application-dev.properties.example
+!application-prod.properties.example

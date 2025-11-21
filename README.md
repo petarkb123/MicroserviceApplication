@@ -240,23 +240,71 @@ View report at: `target/site/jacoco/index.html`
 ## Setup & Running
 
 ### Prerequisites
-- Java 17
-- Maven 3.8+
-- MySQL 8.0
+- **Java 17** (JDK 17 or higher)
+- **Maven 3.8+** (or use the included `mvnw` wrapper)
+- **MySQL 8.0** (installed and running on localhost:3306)
+
+### Quick Start Guide
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/petarkb123/MicroserviceApplication.git
+   cd MicroserviceApplication
+   ```
+
+2. **Ensure MySQL is running**
+   - MySQL server should be running on `localhost:3306`
+   - The database will be created automatically if it doesn't exist
+
+3. **Configure database credentials**
+   
+   Create `src/main/resources/application-local.properties`:
+   ```properties
+   spring.datasource.username=root
+   spring.datasource.password=your_mysql_password
+   ```
+   
+   **Important:** This file is ignored by git and will not be committed to the repository.
+
+4. **Open in IntelliJ IDEA**
+   - Open the project as a Maven project
+   - IntelliJ will automatically detect the project structure
+   - Wait for Maven dependencies to download
+
+5. **Run the application**
+   - Right-click on `AnalyticsApplication.java` → Run
+   - Or use the command line: `./mvnw spring-boot:run`
+   - The application will start on port `1010`
 
 ### Database Setup
+
+The database will be created automatically on first run. If you prefer to create it manually:
 ```sql
 CREATE DATABASE IF NOT EXISTS fitness_analytics_db;
 ```
 
 ### Configuration
-Update `src/main/resources/application.properties`:
+
+#### Option 1: Create Local Properties File (Recommended)
+Create a file `src/main/resources/application-local.properties` with your database credentials:
 ```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/fitness_analytics_db
 spring.datasource.username=root
-spring.datasource.password=your_password
-server.port=1010
+spring.datasource.password=your_mysql_password
 ```
+
+This file is ignored by git (your credentials stay private) and will be automatically loaded by Spring Boot.
+
+#### Option 2: Use Environment Variables
+Set the following environment variables before running the application:
+```bash
+export DB_USERNAME=root
+export DB_PASSWORD=your_mysql_password
+```
+
+#### Option 3: Direct Configuration (Not Recommended)
+You can also edit `src/main/resources/application.properties` directly and replace the placeholder values.
+
+**Note:** The database will be created automatically on first run if it doesn't exist (see `createDatabaseIfNotExist=true` in the connection URL).
 
 ### Running the Application
 ```bash
