@@ -1,8 +1,0 @@
-# Local development configuration example
-# Copy this file to application-local.properties and fill in your database credentials
-# The application-local.properties file is ignored by git and will not be committed
-
-# Example configuration for local MySQL database
-spring.datasource.username=root
-spring.datasource.password=your_mysql_password_here
-
