@@ -1,378 +1,124 @@
 # Analytics Microservice
 
-A dedicated REST API microservice for advanced fitness analytics, providing comprehensive workout statistics, personal records tracking, and milestone management.
+A fitness analytics microservice that tracks your workouts, calculates stats, and helps you stay motivated with personal records and milestones. Think of it as your personal trainer that never sleeps and keeps all your fitness data organized.
 
-## Technology Stack
+## What's This About?
 
-### Backend
-- **Java**: Version 17
-- **Spring Boot**: Version 3.4.5
-- **Build Tool**: Maven
-- **Database**: MySQL 8.0
-- **Framework Modules**:
-    - Spring Web (REST API)
-    - Spring Data JPA (Database access)
-    - Spring Boot Actuator (Monitoring)
-    - Spring Validation (Request validation)
+This is a REST API microservice built with Spring Boot that handles all the analytics stuff for a fitness tracking app. It crunches numbers, tracks your progress, and celebrates your achievements (well, it creates milestone records, which is pretty close).
 
-### Architecture
-- **Port**: 1010 (configurable via `application.properties`)
-- **Communication**: REST API with JSON request/response
-- **Database**: Separate `fitness_analytics_db` database
-- **Integration**: Called via Feign Client from Main Application
+## Tech Stack
 
-## Project Structure
+We're using:
+- **Java 17** - Modern Java features
+- **Spring Boot 3.4.5** - Makes building APIs a breeze
+- **Maven** - Dependency management
+- **MySQL 8.0** - Stores all your workout data
+- **Spring Data JPA** - Database interactions made easy
 
-### Domain Entities
-- **Milestone**: User achievement tracking (custom and system-generated)
-- **Exercise**: Exercise metadata (synced from main app)
-- **WorkoutSession**: Workout session data (synced from main app)
-- **WorkoutSet**: Individual set data (synced from main app)
-- **WeeklySummarySnapshot**: Cached weekly statistics
+The app runs on port `1010` by default, and everything communicates via REST API with JSON.
 
-### Services
-- **AnalyticsService**: Core analytics calculations and business logic
-- **SyncService**: Data synchronization from main application
+## Getting Started
 
-### Controllers
-- **AnalyticsController**: Public REST API endpoints for analytics
-- **SyncController**: Internal endpoints for data synchronization
+### What You'll Need
 
-## API Endpoints
+Before you start, make sure you have:
+- Java 17 or higher installed
+- Maven 3.8+ (or just use the included `mvnw` wrapper - it's easier)
+- MySQL 8.0 running on your machine
 
-### Base URL
-All endpoints are prefixed with `/api/analytics`
+### Quick Setup
 
-### Authentication
-All endpoints require the `X-User-Id` header with a valid UUID.
-
-### Public Analytics Endpoints
-
-#### Weekly Statistics
-- **GET** `/weekly`
-    - Parameters: `from` (LocalDate), `to` (LocalDate)
-    - Returns: `WeeklySummaryResponse` with daily breakdown
-    - Description: Returns weekly workout statistics including session count, volume, and daily breakdown
-
-#### Session Summaries
-- **GET** `/sessions`
-    - Parameters: `from` (LocalDate), `to` (LocalDate)
-    - Returns: `List<SessionSummaryResponse>`
-    - Description: Returns summaries of all workout sessions in the date range
-
-#### Training Frequency
-- **GET** `/training-frequency`
-    - Parameters: `from` (LocalDate), `to` (LocalDate)
-    - Returns: `TrainingFrequencyResponse`
-    - Description: Analyzes training frequency including average sessions per week, current streak, and weekly breakdown
-
-#### Exercise Volume Trends
-- **GET** `/volume-trends`
-    - Parameters: `from` (LocalDate), `to` (LocalDate)
-    - Returns: `List<ExerciseVolumeTrendDto>`
-    - Description: Shows volume trends for each exercise over time
-
-#### Progressive Overload
-- **GET** `/progressive-overload`
-    - Parameters: `from` (LocalDate), `to` (LocalDate)
-    - Returns: `List<ProgressiveOverloadDto>`
-    - Description: Tracks progressive overload patterns for exercises
-
-#### Personal Records
-- **GET** `/personal-records`
-    - Returns: `PersonalRecordsDto`
-    - Description: Returns all personal records (PRs) and milestones for the user
-
-#### Milestones Management
-- **GET** `/milestones`
-    - Returns: `List<MilestoneDto>`
-    - Description: Returns all user milestones
-
-- **POST** `/milestones`
-    - Body: `CreateMilestoneRequest`
-    - Returns: `MilestoneDto`
-    - Description: Creates a new custom milestone
-
-- **PUT** `/milestones/{id}`
-    - Body: `UpdateMilestoneRequest`
-    - Returns: `MilestoneDto`
-    - Description: Updates an existing milestone
-
-- **DELETE** `/milestones/{id}`
-    - Returns: `204 No Content`
-    - Description: Deletes a milestone
-
-#### Weekly Statistics Recompute
-- **POST** `/weekly/recompute`
-    - Body: `RecomputeWeeklyRequest` (optional from/to dates)
-    - Returns: `WeeklySummaryResponse`
-    - Description: Forces recalculation of weekly statistics
-
-### Internal Sync Endpoints
-
-Base URL: `/api/analytics/internal`
-
-These endpoints are used internally by the main application for data synchronization.
-
-- **POST** `/exercises` - Sync exercise data
-- **DELETE** `/exercises/{exerciseId}` - Delete exercise
-- **POST** `/workouts` - Sync workout session data
-- **DELETE** `/workouts/{workoutId}` - Delete workout session
-
-## Features
-
-### Analytics Capabilities
-
-1. **Weekly Statistics**
-    - Daily workout breakdown
-    - Total sessions, sets, reps, and volume
-    - Date range filtering
-
-2. **Training Frequency Analysis**
-    - Average sessions per week
-    - Current training streak
-    - Weekly breakdown with consistency metrics
-    - Best and worst weeks identification
-
-3. **Exercise Volume Trends**
-    - Per-exercise volume tracking over time
-    - Weekly volume aggregation
-    - Exercise identification and grouping
-
-4. **Progressive Overload Tracking**
-    - Exercise-specific progress tracking
-    - Weight and volume progression
-    - Progress point identification
-
-5. **Personal Records (PRs)**
-    - Automatic PR detection (max weight, max volume, max reps)
-    - Exercise-specific PR tracking
-    - Milestone integration
-
-6. **Milestone Management**
-    - Custom milestone creation
-    - System-generated milestones
-    - Milestone types: PERSONAL_RECORD, CUSTOM, etc.
-    - Achievement date tracking
-
-### Data Synchronization
-
-The microservice receives data from the main application via sync endpoints:
-
-- **Exercise Sync**: Exercise metadata (name, muscle group, equipment)
-- **Workout Sync**: Complete workout sessions with sets
-- **Deletion Sync**: Cascade deletion of related data
-
-### Automatic Milestone Generation
-
-The service automatically generates milestones for:
-- First workout (Getting Started)
-- 50 workouts (Dedicated)
-- 100 workouts (Centurion)
-- 100K, 500K, 1M pound clubs (volume milestones)
-- Consistency achievements (12 workouts in 30 days)
-- Training streaks (Consistency King)
-
-## Database
-
-### Configuration
-- **Database Name**: `fitness_analytics_db`
-- **Technology**: MySQL 8.0
-- **UUIDs**: All entities use UUID primary keys
-- **DDL Mode**: `update` (auto-creates/updates schema)
-
-### Entity Relationships
-- `WorkoutSession` → `WorkoutSet` (OneToMany)
-- `Milestone` → `User` (implicit via userId)
-- `WeeklySummarySnapshot` → `User` (implicit via userId)
-
-## Data Validation & Error Handling
-
-### Validation
-- **Request Headers**: `X-User-Id` must be present and valid UUID
-- **Date Parameters**: Must be valid ISO dates, `from` must be before `to`
-- **Request Bodies**: Validated using `@Valid` and Jakarta Validation
-
-### Error Handling
-- **GlobalExceptionHandler**: Centralized exception handling
-- **Error Responses**: JSON format with appropriate HTTP status codes
-- **Validation Errors**: 400 Bad Request with descriptive messages
-- **Authorization Errors**: 403 Forbidden for unauthorized operations
-- **Not Found Errors**: 404 Not Found for missing resources
-
-### Error Response Format
-```json
-{
-  "error": "Error Type",
-  "message": "Detailed error message",
-  "timestamp": "2024-01-01T12:00:00"
-}
-```
-
-## Testing
-
-### Test Coverage
-- **Line Coverage**: 90%+
-- **Test Count**: 40+ tests
-- **Test Types**: Unit tests, Integration tests, API tests
-
-### Test Classes
-- **Service Tests**:
-    - `AnalyticsServiceTest`: Comprehensive analytics logic testing
-    - `SyncServiceTest`: Data synchronization testing
-- **Controller Tests**:
-    - `AnalyticsControllerIntegrationTest`: REST API endpoint testing
-    - `SyncControllerTest`: Internal sync endpoint testing
-- **Exception Handler Tests**:
-    - `GlobalExceptionHandlerTest`: Error handling validation
-
-### Running Tests
-```bash
-mvn test
-```
-
-### Test Coverage Report
-```bash
-mvn test jacoco:report
-```
-View report at: `target/site/jacoco/index.html`
-
-## Setup & Running
-
-### Prerequisites
-- **Java 17** (JDK 17 or higher)
-- **Maven 3.8+** (or use the included `mvnw` wrapper)
-- **MySQL 8.0** (installed and running on localhost:3306)
-
-### Quick Start Guide
-
-1. **Clone the repository**
+1. **Clone this repo**
    ```bash
    git clone https://github.com/petarkb123/MicroserviceApplication.git
    cd MicroserviceApplication
    ```
 
-2. **Ensure MySQL is running**
-   - MySQL server should be running on `localhost:3306`
-   - The database will be created automatically if it doesn't exist
-
-3. **Configure database credentials**
+2. **Make sure MySQL is running**
    
-   Create `src/main/resources/application-local.properties`:
+   The app expects MySQL to be running on `localhost:3306`. Don't worry about creating the database - it'll create itself when you first run the app.
+
+3. **Set up your database credentials**
+   
+   Create a file called `application-local.properties` in `src/main/resources/` with your MySQL username and password:
    ```properties
    spring.datasource.username=root
    spring.datasource.password=your_mysql_password
    ```
    
-   **Important:** This file is ignored by git and will not be committed to the repository.
+   ⚠️ **Important:** This file won't be committed to git, so your password stays safe.
 
-4. **Open in IntelliJ IDEA**
-   - Open the project as a Maven project
-   - IntelliJ will automatically detect the project structure
-   - Wait for Maven dependencies to download
+4. **Open it in IntelliJ IDEA**
+   
+   Just open the project folder in IntelliJ. It should detect it's a Maven project automatically and start downloading dependencies. Give it a minute to finish.
 
-5. **Run the application**
-   - Right-click on `AnalyticsApplication.java` → Run
-   - Or use the command line: `./mvnw spring-boot:run`
-   - The application will start on port `1010`
+5. **Run it!**
+   
+   Right-click on `AnalyticsApplication.java` and hit "Run", or use the command line:
+   ```bash
+   ./mvnw spring-boot:run
+   ```
+   
+   If everything worked, you should see the app start on port `1010`.
 
-### Database Setup
+### Alternative: Environment Variables
 
-The database will be created automatically on first run. If you prefer to create it manually:
-```sql
-CREATE DATABASE IF NOT EXISTS fitness_analytics_db;
-```
-
-### Configuration
-
-#### Option 1: Create Local Properties File (Recommended)
-Create a file `src/main/resources/application-local.properties` with your database credentials:
-```properties
-spring.datasource.username=root
-spring.datasource.password=your_mysql_password
-```
-
-This file is ignored by git (your credentials stay private) and will be automatically loaded by Spring Boot.
-
-#### Option 2: Use Environment Variables
-Set the following environment variables before running the application:
+If you don't want to create a properties file, you can set environment variables instead:
 ```bash
 export DB_USERNAME=root
 export DB_PASSWORD=your_mysql_password
 ```
 
-#### Option 3: Direct Configuration (Not Recommended)
-You can also edit `src/main/resources/application.properties` directly and replace the placeholder values.
+## What Can This Thing Do?
 
-**Note:** The database will be created automatically on first run if it doesn't exist (see `createDatabaseIfNotExist=true` in the connection URL).
+### Analytics Features
 
-### Running the Application
-```bash
-./mvnw spring-boot:run
-```
+- **Weekly Statistics** - See your workout breakdown day by day, total sessions, volume, and more
+- **Training Frequency** - Know how often you're hitting the gym, your current streak, and your consistency
+- **Exercise Volume Trends** - Track how your volume changes over time for each exercise
+- **Progressive Overload Tracking** - See your progress as you gradually increase weights and volume
+- **Personal Records** - Automatically detects and tracks your PRs (max weight, max volume, max reps)
+- **Milestones** - Create custom milestones or let the system generate them for you
 
-Or using Maven:
-```bash
-mvn spring-boot:run
-```
+### Automatic Milestones
 
-### Port
-Default port: `1010` (configurable in `application.properties`)
+The app automatically creates milestones when you:
+- Complete your first workout ("Getting Started")
+- Hit 50 workouts ("Dedicated")
+- Hit 100 workouts ("Centurion")
+- Join the 100K, 500K, or 1M pound clubs (total volume)
+- Work out 12 times in 30 days ("Consistency")
+- Build a training streak ("Consistency King")
 
-## Integration with Main Application
+Pretty neat, right?
 
-The microservice is called from the main application using Spring Cloud OpenFeign:
+## API Endpoints
 
-### Feign Client Configuration
-- **Client Interface**: `AnalyticsClient` (in main app)
-- **Base URL**: `http://localhost:1010/api/analytics`
-- **Header**: `X-User-Id` automatically added
-- **Error Handling**: Graceful fallback on service unavailability
+All endpoints are under `/api/analytics` and require a `X-User-Id` header with a valid UUID.
 
-### Sync Flow
-1. Main app creates/updates exercise → Calls sync endpoint
-2. Main app finishes workout → Calls sync endpoint with session and sets
-3. Main app deletes exercise/workout → Calls delete endpoint
-4. Microservice updates its database accordingly
+### Main Endpoints
 
-## Logging
+- `GET /weekly` - Get weekly workout statistics (requires `from` and `to` date parameters)
+- `GET /sessions` - Get summaries of all workout sessions in a date range
+- `GET /training-frequency` - Analyze your training frequency and streaks
+- `GET /volume-trends` - See volume trends for each exercise over time
+- `GET /progressive-overload` - Track progressive overload patterns
+- `GET /personal-records` - Get all your personal records and milestones
+- `GET /milestones` - List all your milestones
+- `POST /milestones` - Create a new custom milestone
+- `PUT /milestones/{id}` - Update an existing milestone
+- `DELETE /milestones/{id}` - Delete a milestone
+- `POST /weekly/recompute` - Force recalculation of weekly statistics
 
-### Logging Configuration
-- **Framework**: SLF4J with Logback
-- **Levels**: INFO, WARN, DEBUG, ERROR
-- **Package Logging**: `project.fitnessanalytics=INFO`
+### Example Requests
 
-### Logged Events
-- API endpoint access
-- Data synchronization operations
-- Error conditions
-- Transaction boundaries
-- Analytics calculations
-
-## Code Quality
-
-### Architecture Principles
-- **RESTful Design**: Standard HTTP methods and status codes
-- **Layered Architecture**: Controller → Service → Repository
-- **Separation of Concerns**: Analytics logic separated from sync logic
-- **Transaction Management**: Read-only transactions for analytics, write transactions for sync
-
-### Code Standards
-- **Naming Conventions**: Follow Java standards
-- **No Dead Code**: All classes and methods in use
-- **Clean Imports**: No unused imports
-- **Proper Encapsulation**: Private fields with getters/setters
-- **Single Responsibility**: One purpose per class/method
-
-## API Examples
-
-### Get Weekly Statistics
+Get your weekly stats:
 ```bash
 curl -X GET "http://localhost:1010/api/analytics/weekly?from=2024-01-01&to=2024-01-07" \
   -H "X-User-Id: 123e4567-e89b-12d3-a456-426614174000"
 ```
 
-### Create Milestone
+Create a milestone:
 ```bash
 curl -X POST "http://localhost:1010/api/analytics/milestones" \
   -H "X-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
@@ -386,61 +132,89 @@ curl -X POST "http://localhost:1010/api/analytics/milestones" \
   }'
 ```
 
-### Get Personal Records
+## How It Works
+
+This microservice gets data from a main fitness app via sync endpoints. When you do a workout in the main app, it sends the data here, and this service handles all the analytics and milestone stuff.
+
+The internal sync endpoints (under `/api/analytics/internal`) are used by the main application to:
+- Sync exercise data when exercises are created or updated
+- Sync workout sessions when you finish a workout
+- Delete exercises or workouts when they're removed from the main app
+
+## Database
+
+The database is called `fitness_analytics_db` and it's created automatically when you first run the app. All entities use UUIDs as primary keys, and the schema updates automatically thanks to Hibernate's DDL mode.
+
+## Testing
+
+Run the tests with:
 ```bash
-curl -X GET "http://localhost:1010/api/analytics/personal-records" \
-  -H "X-User-Id: 123e4567-e89b-12d3-a456-426614174000"
+mvn test
 ```
 
-## Performance Considerations
+To see test coverage:
+```bash
+mvn test jacoco:report
+```
 
-### Caching
-- Weekly summary snapshots cached in database
-- Recompute endpoint for cache refresh
+Then check out `target/site/jacoco/index.html` in your browser.
 
-### Database Optimization
-- Indexed queries on userId and date ranges
-- Efficient aggregation queries
-- Transaction management for consistency
+We've got pretty good test coverage (90%+) with unit tests, integration tests, and API tests.
 
-### Scalability
-- Stateless design (no session state)
-- Horizontal scaling support
-- Database connection pooling
+## Error Handling
+
+If something goes wrong, you'll get a JSON error response that looks like:
+```json
+{
+  "error": "Error Type",
+  "message": "What went wrong",
+  "timestamp": "2024-01-01T12:00:00"
+}
+```
+
+The app validates all requests and returns appropriate HTTP status codes (400 for bad requests, 403 for unauthorized stuff, 404 for not found, etc.).
+
+## Performance & Scalability
+
+- Weekly summaries are cached in the database for faster access
+- All queries are optimized with proper indexing on userId and date ranges
+- Stateless design means you can scale horizontally if needed
+- Transaction management keeps everything consistent
 
 ## Security
 
-### Authentication
-- User identification via `X-User-Id` header
-- User context validation on all operations
-- Authorization checks for milestone operations
+User identification happens via the `X-User-Id` header. All queries are filtered by userId, so users can only see their own data. No cross-user data access is possible.
 
-### Data Isolation
-- All queries filtered by userId
-- No cross-user data access
-- Secure deletion operations
+## Troubleshooting
 
-## Monitoring
+**The app won't start:**
+- Make sure MySQL is running on localhost:3306
+- Check that you created `application-local.properties` with correct credentials
+- Verify Java 17 is installed: `java -version`
 
-### Actuator Endpoints
-- Health checks available
-- Metrics collection
-- Application monitoring
+**Database connection errors:**
+- Double-check your MySQL username and password in `application-local.properties`
+- Make sure MySQL is actually running
+- Check if port 3306 is available
 
-## Future Enhancements
+**Port already in use:**
+- Change the port in `application.properties`: `server.port=1011` (or any other free port)
 
-Potential improvements:
-- Caching layer for frequently accessed analytics
-- Batch processing for large data sets
+## What's Next?
+
+Some ideas for future improvements:
+- More caching for frequently accessed data
+- Batch processing for large datasets
 - Real-time analytics updates
-- Advanced machine learning predictions
-- Export functionality for analytics data
+- Machine learning predictions (because why not?)
+- Export your analytics data
 
 ## License
 
-This project is developed for educational purposes as part of a fitness tracking application.
+This project is for educational purposes. Feel free to learn from it, but please don't use it in production without proper security reviews.
 
-## Contact
+## Questions?
 
-For questions or support, please refer to the main application documentation or contact the development team.
+If you run into issues or have questions, check the main application documentation or reach out to the development team.
 
+Happy coding! 💪
