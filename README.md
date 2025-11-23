@@ -143,7 +143,7 @@ The internal sync endpoints (under `/api/analytics/internal`) are used by the ma
 
 ## Database
 
-The database is called `fitness_analytics_db` and it's created automatically when you first run the app. All entities use UUIDs as primary keys, and the schema updates automatically thanks to Hibernate's DDL mode.
+The database is called `fitness_analytics` and it's created automatically when you first run the app. All entities use UUIDs as primary keys, and the schema updates automatically thanks to Hibernate's DDL mode.
 
 ## Testing
 
