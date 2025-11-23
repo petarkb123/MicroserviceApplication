@@ -18,4 +18,3 @@ public record TrainingFrequencyResponse(
             int workoutCount
     ) {}
 }
-

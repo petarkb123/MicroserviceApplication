@@ -1,7 +1,10 @@
 package project.fitnessanalytics.controller;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import project.fitnessanalytics.dto.sync.ExerciseSyncRequest;
 import project.fitnessanalytics.dto.sync.WorkoutSyncRequest;
@@ -18,26 +21,26 @@ public class SyncController {
     private final SyncService syncService;
 
     @PostMapping("/exercises")
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    public void syncExercises(@RequestBody List<ExerciseSyncRequest> exercises) {
+    public ResponseEntity<Void> syncExercises(@RequestBody @Valid @NotNull List<ExerciseSyncRequest> exercises) {
         syncService.syncExercises(exercises);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
 
     @DeleteMapping("/exercises/{exerciseId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteExercise(@PathVariable UUID exerciseId) {
+    public ResponseEntity<Void> deleteExercise(@PathVariable @NotNull UUID exerciseId) {
         syncService.deleteExercise(exerciseId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/workouts")
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    public void syncWorkout(@RequestBody WorkoutSyncRequest request) {
+    public ResponseEntity<Void> syncWorkout(@RequestBody @Valid @NotNull WorkoutSyncRequest request) {
         syncService.syncWorkout(request);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
 
     @DeleteMapping("/workouts/{workoutId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteWorkout(@PathVariable UUID workoutId) {
+    public ResponseEntity<Void> deleteWorkout(@PathVariable @NotNull UUID workoutId) {
         syncService.deleteWorkout(workoutId);
+        return ResponseEntity.noContent().build();
     }
 }

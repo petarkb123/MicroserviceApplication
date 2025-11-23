@@ -22,29 +22,35 @@ import java.util.UUID;
 @Slf4j
 public class SyncService {
 
-    private final ExerciseRepository exerciseRepository;
-    private final WorkoutSessionRepository sessionRepository;
-    private final WorkoutSetRepository setRepository;
+    private final ExerciseRepository exerciseRepo;
+    private final WorkoutSessionRepository sessionRepo;
+    private final WorkoutSetRepository setRepo;
 
     @Transactional
     public void syncExercises(List<ExerciseSyncRequest> exercises) {
         if (exercises == null || exercises.isEmpty()) {
             return;
         }
-        exercises.forEach(req -> {
-            if (req.id() == null) {
-                log.warn("Skipping exercise sync with null id");
-                return;
-            }
-            Exercise exercise = exerciseRepository.findById(req.id())
-                    .orElseGet(() -> Exercise.builder().id(req.id()).build());
-            exercise.setOwnerUserId(req.ownerUserId());
-            exercise.setName(req.name());
-            exercise.setPrimaryMuscle(req.primaryMuscle());
-            exercise.setEquipment(req.equipment());
-            exercise.setCreatedOn(req.createdOn());
-            exerciseRepository.save(exercise);
-        });
+        exercises.forEach(this::syncSingleExercise);
+    }
+
+    private void syncSingleExercise(ExerciseSyncRequest req) {
+        if (req.id() == null) {
+            log.warn("Skipping exercise sync with null id");
+            return;
+        }
+        Exercise exercise = exerciseRepo.findById(req.id())
+                .orElseGet(() -> Exercise.builder().id(req.id()).build());
+        updateExerciseFromRequest(exercise, req);
+        exerciseRepo.save(exercise);
+    }
+
+    private void updateExerciseFromRequest(Exercise exercise, ExerciseSyncRequest req) {
+        exercise.setOwnerUserId(req.ownerUserId());
+        exercise.setName(req.name());
+        exercise.setPrimaryMuscle(req.primaryMuscle());
+        exercise.setEquipment(req.equipment());
+        exercise.setCreatedOn(req.createdOn());
     }
 
     @Transactional
@@ -52,8 +58,8 @@ public class SyncService {
         if (exerciseId == null) {
             return;
         }
-        setRepository.deleteByExerciseId(exerciseId);
-        exerciseRepository.deleteById(exerciseId);
+        setRepo.deleteByExerciseId(exerciseId);
+        exerciseRepo.deleteById(exerciseId);
     }
 
     @Transactional
@@ -61,22 +67,26 @@ public class SyncService {
         if (request == null || request.id() == null) {
             return;
         }
-        WorkoutSession session = sessionRepository.findById(request.id())
+        WorkoutSession session = sessionRepo.findById(request.id())
                 .orElseGet(() -> WorkoutSession.builder().id(request.id()).build());
-        session.setUserId(request.userId());
-        session.setStartedAt(request.startedAt());
-        session.setFinishedAt(request.finishedAt());
-        session.setStatus(request.status());
-        sessionRepository.save(session);
+        updateSessionFromRequest(session, request);
+        sessionRepo.save(session);
 
-        setRepository.deleteBySessionId(request.id());
+        setRepo.deleteBySessionId(request.id());
 
         if (request.sets() != null && !request.sets().isEmpty()) {
             List<WorkoutSet> toSave = request.sets().stream()
                     .map(set -> mapSet(request.id(), set))
                     .toList();
-            setRepository.saveAll(toSave);
+            setRepo.saveAll(toSave);
         }
+    }
+
+    private void updateSessionFromRequest(WorkoutSession session, WorkoutSyncRequest request) {
+        session.setUserId(request.userId());
+        session.setStartedAt(request.startedAt());
+        session.setFinishedAt(request.finishedAt());
+        session.setStatus(request.status());
     }
 
     private WorkoutSet mapSet(UUID sessionId, WorkoutSetSyncRequest set) {
@@ -102,7 +112,7 @@ public class SyncService {
         if (sessionId == null) {
             return;
         }
-        setRepository.deleteBySessionId(sessionId);
-        sessionRepository.deleteById(sessionId);
+        setRepo.deleteBySessionId(sessionId);
+        sessionRepo.deleteById(sessionId);
     }
 }

@@ -12,4 +12,3 @@ public record SessionSummaryResponse(
         int totalReps,
         BigDecimal totalVolume
 ) {}
-

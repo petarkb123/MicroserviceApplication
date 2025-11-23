@@ -9,9 +9,13 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
-@Table(name="workout_sets")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor
-@Builder @EqualsAndHashCode(of="id")
+@Table(name = "workout_sets")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EqualsAndHashCode(of = "id")
 public class WorkoutSet {
     @Id
     @JdbcTypeCode(SqlTypes.VARCHAR)
@@ -48,4 +52,3 @@ public class WorkoutSet {
     @Column(name = "exercise_order")
     private Integer exerciseOrder;
 }
-

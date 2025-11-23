@@ -11,8 +11,12 @@ import java.util.UUID;
 @Entity
 @Table(name = "milestones",
         indexes = @Index(name = "ix_milestone_user", columnList = "user_id"))
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor
-@Builder @EqualsAndHashCode(of = "id")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EqualsAndHashCode(of = "id")
 public class Milestone {
 
     @Id
@@ -46,4 +50,3 @@ public class Milestone {
         VOLUME, CONSISTENCY, STRENGTH, ENDURANCE, PERSONAL_RECORD
     }
 }
-

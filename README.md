@@ -29,7 +29,7 @@ Before you start, make sure you have:
 ### Quick Setup
 
 1. **Clone this repo**
-   ```bash
+```bash
    git clone https://github.com/petarkb123/MicroserviceApplication.git
    cd MicroserviceApplication
    ```
@@ -41,8 +41,8 @@ Before you start, make sure you have:
 3. **Set up your database credentials**
    
    Create a file called `application-local.properties` in `src/main/resources/` with your MySQL username and password:
-   ```properties
-   spring.datasource.username=root
+```properties
+spring.datasource.username=root
    spring.datasource.password=your_mysql_password
    ```
    
@@ -55,10 +55,10 @@ Before you start, make sure you have:
 5. **Run it!**
    
    Right-click on `AnalyticsApplication.java` and hit "Run", or use the command line:
-   ```bash
-   ./mvnw spring-boot:run
-   ```
-   
+```bash
+./mvnw spring-boot:run
+```
+
    If everything worked, you should see the app start on port `1010`.
 
 ### Alternative: Environment Variables

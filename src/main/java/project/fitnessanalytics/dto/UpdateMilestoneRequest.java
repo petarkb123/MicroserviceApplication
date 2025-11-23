@@ -12,4 +12,3 @@ public record UpdateMilestoneRequest(
         @NotNull LocalDate achievedDate,
         @NotNull MilestoneType type
 ) {}
-

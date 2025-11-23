@@ -10,5 +10,3 @@ import java.util.UUID;
 public interface WeeklySummarySnapshotRepository extends JpaRepository<WeeklySummarySnapshot, UUID> {
     Optional<WeeklySummarySnapshot> findByUserIdAndWeekStart(UUID userId, LocalDate weekStart);
 }
-
-

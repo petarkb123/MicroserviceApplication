@@ -27,7 +27,6 @@ class AnalyticsControllerIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @SuppressWarnings("removal")
     @MockBean
     private AnalyticsService analyticsService;
 

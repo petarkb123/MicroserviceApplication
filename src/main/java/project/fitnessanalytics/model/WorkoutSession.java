@@ -9,9 +9,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name="workout_sessions")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor
-@Builder @EqualsAndHashCode(of="id")
+@Table(name = "workout_sessions")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EqualsAndHashCode(of = "id")
 public class WorkoutSession {
     @Id
     @JdbcTypeCode(SqlTypes.VARCHAR)
@@ -22,18 +26,17 @@ public class WorkoutSession {
     @Column(name = "user_id", nullable = false, columnDefinition = "char(36)")
     private UUID userId;
 
-    @Column(name="started_at",nullable=false)
+    @Column(name = "started_at", nullable = false)
     private LocalDateTime startedAt;
 
-    @Column(name="finished_at")
+    @Column(name = "finished_at")
     private LocalDateTime finishedAt;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable=false,length=20)
+    @Column(nullable = false, length = 20)
     private SessionStatus status;
 
     public enum SessionStatus {
         IN_PROGRESS, FINISHED, CANCELED
     }
 }
-

@@ -30,13 +30,13 @@ import static org.mockito.Mockito.*;
 class SyncServiceTest {
 
     @Mock
-    private ExerciseRepository exerciseRepository;
+    private ExerciseRepository exerciseRepo;
 
     @Mock
-    private WorkoutSessionRepository sessionRepository;
+    private WorkoutSessionRepository sessionRepo;
 
     @Mock
-    private WorkoutSetRepository setRepository;
+    private WorkoutSetRepository setRepo;
 
     @InjectMocks
     private SyncService syncService;
@@ -54,27 +54,27 @@ class SyncServiceTest {
                 LocalDateTime.now()
         );
 
-        when(exerciseRepository.findById(exerciseId)).thenReturn(Optional.empty());
-        when(exerciseRepository.save(any(Exercise.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(exerciseRepo.findById(exerciseId)).thenReturn(Optional.empty());
+        when(exerciseRepo.save(any(Exercise.class))).thenAnswer(inv -> inv.getArgument(0));
 
         syncService.syncExercises(List.of(request));
 
-        verify(exerciseRepository).findById(exerciseId);
-        verify(exerciseRepository).save(any(Exercise.class));
+        verify(exerciseRepo).findById(exerciseId);
+        verify(exerciseRepo).save(any(Exercise.class));
     }
 
     @Test
     void syncExercises_nullList_doesNothing() {
         syncService.syncExercises(null);
 
-        verify(exerciseRepository, never()).save(any());
+        verify(exerciseRepo, never()).save(any());
     }
 
     @Test
     void syncExercises_emptyList_doesNothing() {
         syncService.syncExercises(List.of());
 
-        verify(exerciseRepository, never()).save(any());
+        verify(exerciseRepo, never()).save(any());
     }
 
     @Test
@@ -90,7 +90,7 @@ class SyncServiceTest {
 
         syncService.syncExercises(List.of(request));
 
-        verify(exerciseRepository, never()).save(any());
+        verify(exerciseRepo, never()).save(any());
     }
 
     @Test
@@ -110,13 +110,13 @@ class SyncServiceTest {
                 LocalDateTime.now()
         );
 
-        when(exerciseRepository.findById(exerciseId)).thenReturn(Optional.of(existing));
-        when(exerciseRepository.save(any(Exercise.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(exerciseRepo.findById(exerciseId)).thenReturn(Optional.of(existing));
+        when(exerciseRepo.save(any(Exercise.class))).thenAnswer(inv -> inv.getArgument(0));
 
         syncService.syncExercises(List.of(request));
 
-        verify(exerciseRepository).findById(exerciseId);
-        verify(exerciseRepository).save(existing);
+        verify(exerciseRepo).findById(exerciseId);
+        verify(exerciseRepo).save(existing);
         assertEquals("New Name", existing.getName());
     }
 
@@ -124,21 +124,21 @@ class SyncServiceTest {
     void deleteExercise_success() {
         UUID exerciseId = UUID.randomUUID();
 
-        doNothing().when(setRepository).deleteByExerciseId(exerciseId);
-        doNothing().when(exerciseRepository).deleteById(exerciseId);
+        doNothing().when(setRepo).deleteByExerciseId(exerciseId);
+        doNothing().when(exerciseRepo).deleteById(exerciseId);
 
         syncService.deleteExercise(exerciseId);
 
-        verify(setRepository).deleteByExerciseId(exerciseId);
-        verify(exerciseRepository).deleteById(exerciseId);
+        verify(setRepo).deleteByExerciseId(exerciseId);
+        verify(exerciseRepo).deleteById(exerciseId);
     }
 
     @Test
     void deleteExercise_nullId_doesNothing() {
         syncService.deleteExercise(null);
 
-        verify(setRepository, never()).deleteByExerciseId(any());
-        verify(exerciseRepository, never()).deleteById(any());
+        verify(setRepo, never()).deleteByExerciseId(any());
+        verify(exerciseRepo, never()).deleteById(any());
     }
 
     @Test
@@ -169,24 +169,24 @@ class SyncServiceTest {
                 List.of(setRequest)
         );
 
-        when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
-        when(sessionRepository.save(any(WorkoutSession.class))).thenAnswer(inv -> inv.getArgument(0));
-        doNothing().when(setRepository).deleteBySessionId(sessionId);
-        when(setRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(sessionRepo.findById(sessionId)).thenReturn(Optional.empty());
+        when(sessionRepo.save(any(WorkoutSession.class))).thenAnswer(inv -> inv.getArgument(0));
+        doNothing().when(setRepo).deleteBySessionId(sessionId);
+        when(setRepo.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
         syncService.syncWorkout(request);
 
-        verify(sessionRepository).findById(sessionId);
-        verify(sessionRepository).save(any(WorkoutSession.class));
-        verify(setRepository).deleteBySessionId(sessionId);
-        verify(setRepository).saveAll(any());
+        verify(sessionRepo).findById(sessionId);
+        verify(sessionRepo).save(any(WorkoutSession.class));
+        verify(setRepo).deleteBySessionId(sessionId);
+        verify(setRepo).saveAll(any());
     }
 
     @Test
     void syncWorkout_nullRequest_doesNothing() {
         syncService.syncWorkout(null);
 
-        verify(sessionRepository, never()).save(any());
+        verify(sessionRepo, never()).save(any());
     }
 
     @Test
@@ -202,7 +202,7 @@ class SyncServiceTest {
 
         syncService.syncWorkout(request);
 
-        verify(sessionRepository, never()).save(any());
+        verify(sessionRepo, never()).save(any());
     }
 
     @Test
@@ -222,13 +222,13 @@ class SyncServiceTest {
                 List.of()
         );
 
-        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(existing));
-        when(sessionRepository.save(any(WorkoutSession.class))).thenAnswer(inv -> inv.getArgument(0));
-        doNothing().when(setRepository).deleteBySessionId(sessionId);
+        when(sessionRepo.findById(sessionId)).thenReturn(Optional.of(existing));
+        when(sessionRepo.save(any(WorkoutSession.class))).thenAnswer(inv -> inv.getArgument(0));
+        doNothing().when(setRepo).deleteBySessionId(sessionId);
 
         syncService.syncWorkout(request);
 
-        verify(sessionRepository).save(existing);
+        verify(sessionRepo).save(existing);
         assertEquals(WorkoutSession.SessionStatus.FINISHED, existing.getStatus());
     }
 
@@ -244,35 +244,35 @@ class SyncServiceTest {
                 List.of()
         );
 
-        when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
-        when(sessionRepository.save(any(WorkoutSession.class))).thenAnswer(inv -> inv.getArgument(0));
-        doNothing().when(setRepository).deleteBySessionId(sessionId);
+        when(sessionRepo.findById(sessionId)).thenReturn(Optional.empty());
+        when(sessionRepo.save(any(WorkoutSession.class))).thenAnswer(inv -> inv.getArgument(0));
+        doNothing().when(setRepo).deleteBySessionId(sessionId);
 
         syncService.syncWorkout(request);
 
-        verify(setRepository).deleteBySessionId(sessionId);
-        verify(setRepository, never()).saveAll(any());
+        verify(setRepo).deleteBySessionId(sessionId);
+        verify(setRepo, never()).saveAll(any());
     }
 
     @Test
     void deleteWorkout_success() {
         UUID sessionId = UUID.randomUUID();
 
-        doNothing().when(setRepository).deleteBySessionId(sessionId);
-        doNothing().when(sessionRepository).deleteById(sessionId);
+        doNothing().when(setRepo).deleteBySessionId(sessionId);
+        doNothing().when(sessionRepo).deleteById(sessionId);
 
         syncService.deleteWorkout(sessionId);
 
-        verify(setRepository).deleteBySessionId(sessionId);
-        verify(sessionRepository).deleteById(sessionId);
+        verify(setRepo).deleteBySessionId(sessionId);
+        verify(sessionRepo).deleteById(sessionId);
     }
 
     @Test
     void deleteWorkout_nullId_doesNothing() {
         syncService.deleteWorkout(null);
 
-        verify(setRepository, never()).deleteBySessionId(any());
-        verify(sessionRepository, never()).deleteById(any());
+        verify(setRepo, never()).deleteBySessionId(any());
+        verify(sessionRepo, never()).deleteById(any());
     }
 }
 

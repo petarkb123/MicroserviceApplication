@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -37,10 +38,28 @@ public class AnalyticsService {
     private final WorkoutSetRepository setRepo;
     private final ExerciseRepository exerciseRepo;
     private final MilestoneRepository milestoneRepo;
-    private final WeeklySummarySnapshotRepository weeklySummarySnapshotRepository;
+    private final WeeklySummarySnapshotRepository weeklySummaryRepo;
     private final ObjectMapper objectMapper;
 
-    private static final java.util.Set<String> AUTO_MILESTONE_TITLES = java.util.Set.of(
+    // Milestone thresholds
+    private static final int MILESTONE_SESSIONS_GETTING_STARTED = 25;
+    private static final int MILESTONE_SESSIONS_DEDICATED = 50;
+    private static final int MILESTONE_SESSIONS_CENTURION = 100;
+    private static final int MILESTONE_RECENT_WORKOUTS_DEDICATED = 12;
+    private static final int MILESTONE_RECENT_WORKOUTS_CONSISTENCY_KING = 20;
+    private static final int RECENT_WORKOUTS_DAYS = 30;
+    private static final int PLATEAU_THRESHOLD_DAYS = 14;
+    private static final int PROGRESSING_THRESHOLD_DAYS = 30;
+
+    private static final BigDecimal VOLUME_100K = BigDecimal.valueOf(100_000);
+    private static final BigDecimal VOLUME_500K = BigDecimal.valueOf(500_000);
+    private static final BigDecimal VOLUME_1M = BigDecimal.valueOf(1_000_000);
+
+    // Trend calculation thresholds
+    private static final BigDecimal TREND_INCREASE_THRESHOLD = BigDecimal.valueOf(1.1);
+    private static final BigDecimal TREND_DECREASE_THRESHOLD = BigDecimal.valueOf(0.9);
+
+    private static final Set<String> AUTO_MILESTONE_TITLES = Set.of(
             "Centurion",
             "Dedicated (50 Sessions)",
             "Dedicated",
@@ -53,17 +72,13 @@ public class AnalyticsService {
     );
 
     public WeeklySummaryResponse getWeeklyStats(UUID userId, LocalDate from, LocalDate to) {
-        LocalDateTime fromTs = from.atStartOfDay();
-        LocalDateTime toTs = to.plusDays(1).atStartOfDay().minusNanos(1);
-
-        List<WorkoutSession> sessions = sessionRepo
-                .findByUserIdAndStatusAndStartedAtBetweenOrderByStartedAtAsc(userId, WorkoutSession.SessionStatus.FINISHED, fromTs, toTs);
+        List<WorkoutSession> sessions = findFinishedSessionsInRange(userId, from, to);
 
         Map<UUID, WorkoutSession> byId = sessions.stream()
                 .collect(Collectors.toMap(WorkoutSession::getId, s -> s));
 
-        List<UUID> sids = sessions.stream().map(WorkoutSession::getId).toList();
-        List<WorkoutSet> sets = sids.isEmpty() ? List.of() : setRepo.findAllBySessionIdIn(sids);
+        List<UUID> sessionIds = sessions.stream().map(WorkoutSession::getId).toList();
+        List<WorkoutSet> sets = sessionIds.isEmpty() ? List.of() : setRepo.findAllBySessionIdIn(sessionIds);
 
         Map<LocalDate, DayAcc> days = new LinkedHashMap<>();
         for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
@@ -80,9 +95,7 @@ public class AnalyticsService {
             DayAcc acc = days.get(s.getStartedAt().toLocalDate());
             acc.sets++;
             if (ws.getReps() != null) acc.reps += ws.getReps();
-            if (ws.getWeight() != null && ws.getReps() != null) {
-                acc.volume = acc.volume.add(ws.getWeight().multiply(BigDecimal.valueOf(ws.getReps())));
-            }
+            acc.volume = acc.volume.add(calculateSetVolume(ws));
         }
 
         List<WeeklySummaryResponse.DayStat> dayStats = days.entrySet().stream()
@@ -104,12 +117,12 @@ public class AnalyticsService {
         int totalSessions = summary.days().stream().mapToInt(WeeklySummaryResponse.DayStat::sessions).sum();
         int totalSets = summary.days().stream().mapToInt(WeeklySummaryResponse.DayStat::sets).sum();
         int totalReps = summary.days().stream().mapToInt(WeeklySummaryResponse.DayStat::reps).sum();
-        java.math.BigDecimal totalVolume = summary.days().stream()
+        BigDecimal totalVolume = summary.days().stream()
                 .map(WeeklySummaryResponse.DayStat::volume)
-                .filter(java.util.Objects::nonNull)
-                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        WeeklySummarySnapshot snapshot = weeklySummarySnapshotRepository
+        WeeklySummarySnapshot snapshot = weeklySummaryRepo
                 .findByUserIdAndWeekStart(userId, summary.from())
                 .orElseGet(WeeklySummarySnapshot::new);
 
@@ -128,16 +141,12 @@ public class AnalyticsService {
             snapshot.setPayloadJson(null);
         }
 
-        weeklySummarySnapshotRepository.save(snapshot);
+        weeklySummaryRepo.save(snapshot);
         return summary;
     }
 
     public List<SessionSummaryResponse> getSessionSummaries(UUID userId, LocalDate from, LocalDate to) {
-        LocalDateTime fromTs = from.atStartOfDay();
-        LocalDateTime toTs = to.plusDays(1).atStartOfDay().minusNanos(1);
-
-        List<WorkoutSession> sessions = sessionRepo
-                .findByUserIdAndStatusAndStartedAtBetweenOrderByStartedAtAsc(userId, WorkoutSession.SessionStatus.FINISHED, fromTs, toTs);
+        List<WorkoutSession> sessions = findFinishedSessionsInRange(userId, from, to);
 
         Map<UUID, List<WorkoutSet>> setsBySession = setRepo.findAllBySessionIdIn(
                         sessions.stream().map(WorkoutSession::getId).toList())
@@ -148,10 +157,7 @@ public class AnalyticsService {
             List<WorkoutSet> sets = setsBySession.getOrDefault(s.getId(), List.of());
             int totalSets = sets.size();
             int totalReps = sets.stream().filter(x -> x.getReps() != null).mapToInt(WorkoutSet::getReps).sum();
-            BigDecimal volume = sets.stream()
-                    .filter(x -> x.getWeight() != null && x.getReps() != null)
-                    .map(x -> x.getWeight().multiply(BigDecimal.valueOf(x.getReps())))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal volume = calculateTotalVolume(sets);
 
             out.add(new SessionSummaryResponse(s.getId(), s.getStartedAt(), s.getFinishedAt(), totalSets, totalReps, volume));
         }
@@ -159,11 +165,7 @@ public class AnalyticsService {
     }
 
     public TrainingFrequencyResponse getTrainingFrequency(UUID userId, LocalDate from, LocalDate to) {
-        LocalDateTime fromTs = from.atStartOfDay();
-        LocalDateTime toTs = to.plusDays(1).atStartOfDay().minusNanos(1);
-
-        List<WorkoutSession> sessions = sessionRepo
-                .findByUserIdAndStatusAndStartedAtBetweenOrderByStartedAtAsc(userId, WorkoutSession.SessionStatus.FINISHED, fromTs, toTs);
+        List<WorkoutSession> sessions = findFinishedSessionsInRange(userId, from, to);
 
         if (sessions.isEmpty()) {
             return new TrainingFrequencyResponse(0, 0.0, Map.of(), List.of(), 0, 0.0);
@@ -221,11 +223,7 @@ public class AnalyticsService {
     }
 
     public List<ExerciseVolumeTrendDto> getExerciseVolumeTrends(UUID userId, LocalDate from, LocalDate to) {
-        LocalDateTime fromTs = from.atStartOfDay();
-        LocalDateTime toTs = to.plusDays(1).atStartOfDay().minusNanos(1);
-
-        List<WorkoutSession> sessions = sessionRepo
-                .findByUserIdAndStatusAndStartedAtBetweenOrderByStartedAtAsc(userId, WorkoutSession.SessionStatus.FINISHED, fromTs, toTs);
+        List<WorkoutSession> sessions = findFinishedSessionsInRange(userId, from, to);
 
         if (sessions.isEmpty()) {
             return List.of();
@@ -263,19 +261,13 @@ public class AnalyticsService {
                 LocalDate weekStart = session.getStartedAt().toLocalDate()
                         .with(DayOfWeek.MONDAY);
 
-                BigDecimal setVolume = BigDecimal.ZERO;
-                if (set.getWeight() != null && set.getReps() != null) {
-                    setVolume = set.getWeight().multiply(BigDecimal.valueOf(set.getReps()));
-                }
+                BigDecimal setVolume = calculateSetVolume(set);
 
                 weeklyVolume.merge(weekStart, setVolume, BigDecimal::add);
                 weeklySets.merge(weekStart, 1, Integer::sum);
             }
 
-            BigDecimal totalVolume = sets.stream()
-                    .filter(s -> s.getWeight() != null && s.getReps() != null)
-                    .map(s -> s.getWeight().multiply(BigDecimal.valueOf(s.getReps())))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalVolume = calculateTotalVolume(sets);
 
             int totalSets = sets.size();
             BigDecimal avgVolumePerSession = weeklySets.isEmpty() ? BigDecimal.ZERO : totalVolume.divide(
@@ -284,8 +276,8 @@ public class AnalyticsService {
                     RoundingMode.HALF_UP
             );
 
-            List<LocalDate> weeks = new ArrayList<>(weeklyVolume.keySet());
             String trend = "stable";
+            List<LocalDate> weeks = new ArrayList<>(weeklyVolume.keySet());
             if (weeks.size() >= 2) {
                 int midPoint = weeks.size() / 2;
                 BigDecimal firstHalfAvg = weeks.subList(0, midPoint).stream()
@@ -298,9 +290,9 @@ public class AnalyticsService {
                         .reduce(BigDecimal.ZERO, BigDecimal::add)
                         .divide(BigDecimal.valueOf(weeks.size() - midPoint), 2, RoundingMode.HALF_UP);
 
-                if (secondHalfAvg.compareTo(firstHalfAvg.multiply(BigDecimal.valueOf(1.1))) > 0) {
+                if (secondHalfAvg.compareTo(firstHalfAvg.multiply(TREND_INCREASE_THRESHOLD)) > 0) {
                     trend = "increasing";
-                } else if (secondHalfAvg.compareTo(firstHalfAvg.multiply(BigDecimal.valueOf(0.9))) < 0) {
+                } else if (secondHalfAvg.compareTo(firstHalfAvg.multiply(TREND_DECREASE_THRESHOLD)) < 0) {
                     trend = "decreasing";
                 }
             }
@@ -331,11 +323,7 @@ public class AnalyticsService {
     }
 
     public List<ProgressiveOverloadDto> getProgressiveOverload(UUID userId, LocalDate from, LocalDate to) {
-        LocalDateTime fromTs = from.atStartOfDay();
-        LocalDateTime toTs = to.plusDays(1).atStartOfDay().minusNanos(1);
-
-        List<WorkoutSession> sessions = sessionRepo
-                .findByUserIdAndStatusAndStartedAtBetweenOrderByStartedAtAsc(userId, WorkoutSession.SessionStatus.FINISHED, fromTs, toTs);
+        List<WorkoutSession> sessions = findFinishedSessionsInRange(userId, from, to);
 
         if (sessions.isEmpty()) {
             return List.of();
@@ -422,9 +410,9 @@ public class AnalyticsService {
                 LocalDate lastProgressDate = progressPoints.get(progressPoints.size() - 1).date();
                 long daysSinceProgress = ChronoUnit.DAYS.between(lastProgressDate, to);
 
-                if (daysSinceProgress <= 14) {
+                if (daysSinceProgress <= PLATEAU_THRESHOLD_DAYS) {
                     status = "progressing";
-                } else if (daysSinceProgress > 30) {
+                } else if (daysSinceProgress > PROGRESSING_THRESHOLD_DAYS) {
                     status = "plateau";
                 }
             }
@@ -454,20 +442,11 @@ public class AnalyticsService {
         if (allSessions.isEmpty()) {
             List<Milestone> existingMilestones = milestoneRepo.findByUserIdOrderByAchievedDateDesc(userId);
             List<PersonalRecordsDto.Milestone> milestones = existingMilestones.stream()
-                    .map(m -> {
-                        String icon = switch (m.getType()) {
-                            case VOLUME -> "💪";
-                            case CONSISTENCY -> "👑";
-                            case STRENGTH -> "🏋️";
-                            case ENDURANCE -> "🏃";
-                            case PERSONAL_RECORD -> "🎯";
-                        };
-                        return new PersonalRecordsDto.Milestone(
+                    .map(m -> new PersonalRecordsDto.Milestone(
                                 m.getTitle(),
                                 m.getDescription() != null ? m.getDescription() : "",
-                                icon
-                        );
-                    })
+                            getMilestoneIcon(m.getType())
+                    ))
                     .toList();
             return new PersonalRecordsDto(List.of(), milestones);
         }
@@ -496,49 +475,13 @@ public class AnalyticsService {
 
             List<PersonalRecordsDto.ExercisePR> prs = new ArrayList<>();
 
-            BigDecimal maxWeight = sets.stream()
-                    .map(WorkoutSet::getWeight)
-                    .filter(Objects::nonNull)
-                    .max(BigDecimal::compareTo)
-                    .orElse(BigDecimal.ZERO);
-
-            Integer maxReps = sets.stream()
-                    .map(WorkoutSet::getReps)
-                    .filter(Objects::nonNull)
-                    .max(Integer::compareTo)
-                    .orElse(0);
-
-            if (maxWeight.compareTo(BigDecimal.ZERO) > 0) {
-                WorkoutSet maxSet = sets.stream()
-                        .filter(s -> s.getWeight() != null && s.getWeight().equals(maxWeight))
-                        .findFirst()
-                        .orElse(null);
-
-                if (maxSet != null) {
-                    LocalDate achievedDate = sessionMap.get(maxSet.getSessionId()).getStartedAt().toLocalDate();
-                    prs.add(new PersonalRecordsDto.ExercisePR(exerciseId, exercise.getName(), "Max Weight", maxWeight, maxSet.getReps(), achievedDate));
-                }
-            }
-
-            if (maxReps > 0) {
-                WorkoutSet maxRepSet = sets.stream()
-                        .filter(s -> s.getReps() != null && s.getReps().equals(maxReps))
-                        .findFirst()
-                        .orElse(null);
-
-                if (maxRepSet != null) {
-                    LocalDate achievedDate = sessionMap.get(maxRepSet.getSessionId()).getStartedAt().toLocalDate();
-                    prs.add(new PersonalRecordsDto.ExercisePR(exerciseId, exercise.getName(), "Max Reps", maxRepSet.getWeight(), maxReps, achievedDate));
-                }
-            }
+            findMaxWeightPR(sets, sessionMap, exerciseId, exercise.getName(), prs);
+            findMaxRepsPR(sets, sessionMap, exerciseId, exercise.getName(), prs);
 
             exercisePRs.addAll(prs);
         }
 
-        BigDecimal totalVolume = allSets.stream()
-                .filter(s -> s.getWeight() != null && s.getReps() != null)
-                .map(s -> s.getWeight().multiply(BigDecimal.valueOf(s.getReps())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalVolume = calculateTotalVolume(allSets);
 
         List<Milestone> existingMilestones = milestoneRepo.findByUserIdOrderByAchievedDateDesc(userId);
         Map<String, Milestone> existingByTitle = existingMilestones.stream()
@@ -550,47 +493,51 @@ public class AnalyticsService {
         Set<String> addedTitles = new HashSet<>();
         Set<String> expectedAutoTitles = new HashSet<>();
 
-        if (allSessions.size() >= 25) {
+        // Check session count milestones
+        if (allSessions.size() >= MILESTONE_SESSIONS_GETTING_STARTED) {
             ensureAutoMilestone(userId, existingByTitle, milestones, addedTitles, expectedAutoTitles,
                     "Getting Started", "25+ workout sessions completed", "🎯", Milestone.MilestoneType.CONSISTENCY, today);
         }
-        if (allSessions.size() >= 50) {
+        if (allSessions.size() >= MILESTONE_SESSIONS_DEDICATED) {
             ensureAutoMilestone(userId, existingByTitle, milestones, addedTitles, expectedAutoTitles,
                     "Dedicated (50 Sessions)", "50+ workout sessions completed", "💪", Milestone.MilestoneType.CONSISTENCY, today);
         }
-        if (allSessions.size() >= 100) {
+        if (allSessions.size() >= MILESTONE_SESSIONS_CENTURION) {
             ensureAutoMilestone(userId, existingByTitle, milestones, addedTitles, expectedAutoTitles,
                     "Centurion", "100+ workout sessions completed", "🏋️", Milestone.MilestoneType.CONSISTENCY, today);
         }
 
-        if (totalVolume.compareTo(BigDecimal.valueOf(100000)) >= 0) {
+        // Check volume milestones
+        if (totalVolume.compareTo(VOLUME_100K) >= 0) {
             ensureAutoMilestone(userId, existingByTitle, milestones, addedTitles, expectedAutoTitles,
                     "100K Club", "Lifted 100,000+ lbs total", "💪", Milestone.MilestoneType.VOLUME, today);
         }
-        if (totalVolume.compareTo(BigDecimal.valueOf(500000)) >= 0) {
+        if (totalVolume.compareTo(VOLUME_500K) >= 0) {
             ensureAutoMilestone(userId, existingByTitle, milestones, addedTitles, expectedAutoTitles,
                     "Half Million", "Lifted 500,000+ lbs total", "💪", Milestone.MilestoneType.VOLUME, today);
         }
-        if (totalVolume.compareTo(BigDecimal.valueOf(1000000)) >= 0) {
+        if (totalVolume.compareTo(VOLUME_1M) >= 0) {
             ensureAutoMilestone(userId, existingByTitle, milestones, addedTitles, expectedAutoTitles,
                     "Million Pound Club", "Lifted 1,000,000+ lbs total", "💪", Milestone.MilestoneType.VOLUME, today);
         }
 
-        LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
+        // Check recent workout milestones
+        LocalDate thirtyDaysAgo = LocalDate.now().minusDays(RECENT_WORKOUTS_DAYS);
         long recentWorkouts = allSessions.stream()
                 .filter(s -> s.getStartedAt().toLocalDate().isAfter(thirtyDaysAgo))
                 .count();
 
-        if (recentWorkouts >= 12) {
+        if (recentWorkouts >= MILESTONE_RECENT_WORKOUTS_DEDICATED) {
             ensureAutoMilestone(userId, existingByTitle, milestones, addedTitles, expectedAutoTitles,
                     "Dedicated (12 in 30)", "12+ workouts in 30 days", "🔥", Milestone.MilestoneType.CONSISTENCY, today);
         }
-        if (recentWorkouts >= 20) {
+        if (recentWorkouts >= MILESTONE_RECENT_WORKOUTS_CONSISTENCY_KING) {
             ensureAutoMilestone(userId, existingByTitle, milestones, addedTitles, expectedAutoTitles,
                     "Consistency King", "20+ workouts in 30 days", "👑", Milestone.MilestoneType.CONSISTENCY, today);
         }
         
         log.info("Processed milestones for user {}: {} auto-generated milestones found", userId, milestones.size());
+        // TODO: Consider caching milestone calculations for better performance
         
         existingMilestones = milestoneRepo.findByUserIdOrderByAchievedDateDesc(userId);
         log.debug("Found {} existing milestones in database for user {}", existingMilestones.size(), userId);
@@ -610,19 +557,11 @@ public class AnalyticsService {
         }
 
         for (Milestone existing : existingMilestones) {
-            String icon = switch (existing.getType()) {
-                case VOLUME -> "💪";
-                case CONSISTENCY -> "👑";
-                case STRENGTH -> "🏋️";
-                case ENDURANCE -> "🏃";
-                case PERSONAL_RECORD -> "🎯";
-            };
-            
             if (!addedTitles.contains(existing.getTitle())) {
                 milestones.add(new PersonalRecordsDto.Milestone(
                         existing.getTitle(),
                         existing.getDescription() != null ? existing.getDescription() : "",
-                        icon
+                        getMilestoneIcon(existing.getType())
                 ));
                 addedTitles.add(existing.getTitle());
             }
@@ -630,7 +569,6 @@ public class AnalyticsService {
 
         return new PersonalRecordsDto(exercisePRs, milestones);
     }
-
 
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     private boolean saveAutoMilestone(UUID userId, String title, String description, LocalDate achievedDate, Milestone.MilestoneType type) {
@@ -650,7 +588,7 @@ public class AnalyticsService {
                         .build();
                 Milestone saved = milestoneRepo.save(milestone);
                 milestoneRepo.flush();
-                log.info("✅ SAVED auto-generated milestone '{}' for user {} with id {} to analytics database", title, userId, saved.getId());
+                log.info("Saved auto-generated milestone '{}' for user {} with id {}", title, userId, saved.getId());
                 log.info("Milestone details: title={}, description={}, date={}, type={}", 
                     saved.getTitle(), saved.getDescription(), saved.getAchievedDate(), saved.getType());
                 return true;
@@ -682,13 +620,6 @@ public class AnalyticsService {
             addedTitles.add(title);
         }
         expectedAutoTitles.add(title);
-    }
-
-        private static class DayAcc {
-            int sessions = 0;
-            int sets = 0;
-            int reps = 0;
-            BigDecimal volume = BigDecimal.ZERO;
         }
 
     @Transactional
@@ -766,5 +697,82 @@ public class AnalyticsService {
         
         milestoneRepo.delete(milestone);
     }
+
+    private List<WorkoutSession> findFinishedSessionsInRange(UUID userId, LocalDate from, LocalDate to) {
+        LocalDateTime fromTs = from.atStartOfDay();
+        LocalDateTime toTs = to.plusDays(1).atStartOfDay().minusNanos(1);
+        return sessionRepo.findByUserIdAndStatusAndStartedAtBetweenOrderByStartedAtAsc(
+                userId, WorkoutSession.SessionStatus.FINISHED, fromTs, toTs);
     }
 
+    private String getMilestoneIcon(Milestone.MilestoneType type) {
+        return switch (type) {
+            case VOLUME -> "💪";
+            case CONSISTENCY -> "👑";
+            case STRENGTH -> "🏋️";
+            case ENDURANCE -> "🏃";
+            case PERSONAL_RECORD -> "🎯";
+        };
+    }
+
+    private static BigDecimal calculateSetVolume(WorkoutSet set) {
+        if (set.getWeight() == null || set.getReps() == null) {
+            return BigDecimal.ZERO;
+        }
+        return set.getWeight().multiply(BigDecimal.valueOf(set.getReps()));
+    }
+
+    private static BigDecimal calculateTotalVolume(List<WorkoutSet> sets) {
+        return sets.stream()
+                .map(AnalyticsService::calculateSetVolume)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private void findMaxWeightPR(List<WorkoutSet> sets, Map<UUID, WorkoutSession> sessionMap,
+                                  UUID exerciseId, String exerciseName, List<PersonalRecordsDto.ExercisePR> prs) {
+        BigDecimal maxWeight = sets.stream()
+                .map(WorkoutSet::getWeight)
+                .filter(Objects::nonNull)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+
+        if (maxWeight.compareTo(BigDecimal.ZERO) > 0) {
+            sets.stream()
+                    .filter(s -> s.getWeight() != null && s.getWeight().equals(maxWeight))
+                    .findFirst()
+                    .ifPresent(maxSet -> {
+                        LocalDate achievedDate = sessionMap.get(maxSet.getSessionId()).getStartedAt().toLocalDate();
+                        prs.add(new PersonalRecordsDto.ExercisePR(
+                                exerciseId, exerciseName, "Max Weight", maxWeight, maxSet.getReps(), achievedDate));
+                    });
+        }
+    }
+
+    private void findMaxRepsPR(List<WorkoutSet> sets, Map<UUID, WorkoutSession> sessionMap,
+                                UUID exerciseId, String exerciseName, List<PersonalRecordsDto.ExercisePR> prs) {
+        Integer maxReps = sets.stream()
+                .map(WorkoutSet::getReps)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0);
+
+        if (maxReps > 0) {
+            sets.stream()
+                    .filter(s -> s.getReps() != null && s.getReps().equals(maxReps))
+                    .findFirst()
+                    .ifPresent(maxRepSet -> {
+                        LocalDate achievedDate = sessionMap.get(maxRepSet.getSessionId()).getStartedAt().toLocalDate();
+                        prs.add(new PersonalRecordsDto.ExercisePR(
+                                exerciseId, exerciseName, "Max Reps", maxRepSet.getWeight(), maxReps, achievedDate));
+                    });
+        }
+    }
+
+
+    private static class DayAcc {
+        int sessions = 0;
+        int sets = 0;
+        int reps = 0;
+        BigDecimal volume = BigDecimal.ZERO;
+    }
+}

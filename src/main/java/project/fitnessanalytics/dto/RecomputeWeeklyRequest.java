@@ -6,5 +6,3 @@ public record RecomputeWeeklyRequest(
         LocalDate from,
         LocalDate to
 ) {}
-
-

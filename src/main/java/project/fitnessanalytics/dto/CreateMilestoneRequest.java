@@ -17,4 +17,3 @@ public record CreateMilestoneRequest(
         VOLUME, CONSISTENCY, STRENGTH, ENDURANCE, PERSONAL_RECORD
     }
 }
-

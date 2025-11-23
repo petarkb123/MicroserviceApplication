@@ -4,12 +4,14 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import project.fitnessanalytics.dto.*;
 import project.fitnessanalytics.service.AnalyticsService;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -26,11 +28,7 @@ public class AnalyticsController {
             @RequestHeader("X-User-Id") @NotNull UUID userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @NotNull LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @NotNull LocalDate to) {
-        
-        if (from.isAfter(to)) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Start date must be before end date");
-        }
-        
+        validateDateRange(from, to);
         return ResponseEntity.ok(analyticsService.getWeeklyStats(userId, from, to));
     }
 
@@ -38,11 +36,9 @@ public class AnalyticsController {
     public ResponseEntity<WeeklySummaryResponse> recomputeWeeklyStats(
             @RequestHeader("X-User-Id") @NotNull UUID userId,
             @RequestBody @Valid RecomputeWeeklyRequest request) {
-        LocalDate start = request.from() != null ? request.from() : LocalDate.now().with(java.time.DayOfWeek.MONDAY);
+        LocalDate start = request.from() != null ? request.from() : LocalDate.now().with(DayOfWeek.MONDAY);
         LocalDate end = request.to() != null ? request.to() : start.plusDays(6);
-        if (start.isAfter(end)) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Start date must be before end date");
-        }
+        validateDateRange(start, end);
         WeeklySummaryResponse summary = analyticsService.recomputeWeeklyStats(userId, start, end);
         return ResponseEntity.ok(summary);
     }
@@ -52,11 +48,7 @@ public class AnalyticsController {
             @RequestHeader("X-User-Id") @NotNull UUID userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @NotNull LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @NotNull LocalDate to) {
-        
-        if (from.isAfter(to)) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Start date must be before end date");
-        }
-        
+        validateDateRange(from, to);
         return ResponseEntity.ok(analyticsService.getSessionSummaries(userId, from, to));
     }
 
@@ -65,11 +57,7 @@ public class AnalyticsController {
             @RequestHeader("X-User-Id") @NotNull UUID userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @NotNull LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @NotNull LocalDate to) {
-        
-        if (from.isAfter(to)) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Start date must be before end date");
-        }
-        
+        validateDateRange(from, to);
         return ResponseEntity.ok(analyticsService.getTrainingFrequency(userId, from, to));
     }
 
@@ -78,11 +66,7 @@ public class AnalyticsController {
             @RequestHeader("X-User-Id") @NotNull UUID userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @NotNull LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @NotNull LocalDate to) {
-        
-        if (from.isAfter(to)) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Start date must be before end date");
-        }
-        
+        validateDateRange(from, to);
         return ResponseEntity.ok(analyticsService.getExerciseVolumeTrends(userId, from, to));
     }
 
@@ -91,11 +75,7 @@ public class AnalyticsController {
             @RequestHeader("X-User-Id") @NotNull UUID userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @NotNull LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @NotNull LocalDate to) {
-        
-        if (from.isAfter(to)) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Start date must be before end date");
-        }
-        
+        validateDateRange(from, to);
         return ResponseEntity.ok(analyticsService.getProgressiveOverload(userId, from, to));
     }
 
@@ -110,7 +90,7 @@ public class AnalyticsController {
             @RequestHeader("X-User-Id") @NotNull UUID userId,
             @RequestBody @Valid CreateMilestoneRequest request) {
         if (!request.userId().equals(userId)) {
-            throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Cannot create milestone for another user");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot create milestone for another user");
         }
         return ResponseEntity.ok(analyticsService.createMilestone(request));
     }
@@ -136,6 +116,10 @@ public class AnalyticsController {
         analyticsService.deleteMilestone(id, userId);
         return ResponseEntity.noContent().build();
     }
+
+    private void validateDateRange(LocalDate from, LocalDate to) {
+        if (from.isAfter(to)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date must be before end date");
+        }
+    }
 }
-
-
