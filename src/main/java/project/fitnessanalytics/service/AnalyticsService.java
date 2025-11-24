@@ -17,6 +17,7 @@ import project.fitnessanalytics.repository.MilestoneRepository;
 import project.fitnessanalytics.repository.WeeklySummarySnapshotRepository;
 import project.fitnessanalytics.repository.WorkoutSessionRepository;
 import project.fitnessanalytics.repository.WorkoutSetRepository;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -570,7 +571,7 @@ public class AnalyticsService {
         return new PersonalRecordsDto(exercisePRs, milestones);
     }
 
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     private boolean saveAutoMilestone(UUID userId, String title, String description, LocalDate achievedDate, Milestone.MilestoneType type) {
         try {
             List<Milestone> existing = milestoneRepo.findByUserIdOrderByAchievedDateDesc(userId);
