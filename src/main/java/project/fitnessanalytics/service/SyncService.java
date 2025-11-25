@@ -13,7 +13,6 @@ import project.fitnessanalytics.model.WorkoutSet;
 import project.fitnessanalytics.repository.ExerciseRepository;
 import project.fitnessanalytics.repository.WorkoutSessionRepository;
 import project.fitnessanalytics.repository.WorkoutSetRepository;
-
 import java.util.List;
 import java.util.UUID;
 

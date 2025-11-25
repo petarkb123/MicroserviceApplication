@@ -2,7 +2,6 @@ package project.fitnessanalytics.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import project.fitnessanalytics.model.Exercise;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;

@@ -1,7 +1,6 @@
 package project.fitnessanalytics.dto.sync;
 
 import project.fitnessanalytics.model.WorkoutSession;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;

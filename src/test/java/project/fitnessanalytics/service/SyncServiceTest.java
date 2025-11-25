@@ -15,13 +15,11 @@ import project.fitnessanalytics.model.WorkoutSession;
 import project.fitnessanalytics.repository.ExerciseRepository;
 import project.fitnessanalytics.repository.WorkoutSessionRepository;
 import project.fitnessanalytics.repository.WorkoutSetRepository;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;

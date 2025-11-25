@@ -2,7 +2,6 @@ package project.fitnessanalytics.dto.sync;
 
 import project.fitnessanalytics.model.Equipment;
 import project.fitnessanalytics.model.MuscleGroup;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 

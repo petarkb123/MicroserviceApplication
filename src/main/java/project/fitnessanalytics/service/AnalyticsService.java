@@ -18,7 +18,6 @@ import project.fitnessanalytics.repository.WeeklySummarySnapshotRepository;
 import project.fitnessanalytics.repository.WorkoutSessionRepository;
 import project.fitnessanalytics.repository.WorkoutSetRepository;
 import org.springframework.transaction.annotation.Propagation;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
@@ -42,7 +41,6 @@ public class AnalyticsService {
     private final WeeklySummarySnapshotRepository weeklySummaryRepo;
     private final ObjectMapper objectMapper;
 
-    // Milestone thresholds
     private static final int MILESTONE_SESSIONS_GETTING_STARTED = 25;
     private static final int MILESTONE_SESSIONS_DEDICATED = 50;
     private static final int MILESTONE_SESSIONS_CENTURION = 100;
@@ -56,7 +54,6 @@ public class AnalyticsService {
     private static final BigDecimal VOLUME_500K = BigDecimal.valueOf(500_000);
     private static final BigDecimal VOLUME_1M = BigDecimal.valueOf(1_000_000);
 
-    // Trend calculation thresholds
     private static final BigDecimal TREND_INCREASE_THRESHOLD = BigDecimal.valueOf(1.1);
     private static final BigDecimal TREND_DECREASE_THRESHOLD = BigDecimal.valueOf(0.9);
 
@@ -494,7 +491,6 @@ public class AnalyticsService {
         Set<String> addedTitles = new HashSet<>();
         Set<String> expectedAutoTitles = new HashSet<>();
 
-        // Check session count milestones
         if (allSessions.size() >= MILESTONE_SESSIONS_GETTING_STARTED) {
             ensureAutoMilestone(userId, existingByTitle, milestones, addedTitles, expectedAutoTitles,
                     "Getting Started", "25+ workout sessions completed", "🎯", Milestone.MilestoneType.CONSISTENCY, today);
@@ -508,7 +504,6 @@ public class AnalyticsService {
                     "Centurion", "100+ workout sessions completed", "🏋️", Milestone.MilestoneType.CONSISTENCY, today);
         }
 
-        // Check volume milestones
         if (totalVolume.compareTo(VOLUME_100K) >= 0) {
             ensureAutoMilestone(userId, existingByTitle, milestones, addedTitles, expectedAutoTitles,
                     "100K Club", "Lifted 100,000+ lbs total", "💪", Milestone.MilestoneType.VOLUME, today);
@@ -522,7 +517,6 @@ public class AnalyticsService {
                     "Million Pound Club", "Lifted 1,000,000+ lbs total", "💪", Milestone.MilestoneType.VOLUME, today);
         }
 
-        // Check recent workout milestones
         LocalDate thirtyDaysAgo = LocalDate.now().minusDays(RECENT_WORKOUTS_DAYS);
         long recentWorkouts = allSessions.stream()
                 .filter(s -> s.getStartedAt().toLocalDate().isAfter(thirtyDaysAgo))
@@ -538,7 +532,6 @@ public class AnalyticsService {
         }
         
         log.info("Processed milestones for user {}: {} auto-generated milestones found", userId, milestones.size());
-        // TODO: Consider caching milestone calculations for better performance
         
         existingMilestones = milestoneRepo.findByUserIdOrderByAchievedDateDesc(userId);
         log.debug("Found {} existing milestones in database for user {}", existingMilestones.size(), userId);

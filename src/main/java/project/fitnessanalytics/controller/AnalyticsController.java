@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import project.fitnessanalytics.dto.*;
 import project.fitnessanalytics.service.AnalyticsService;
-
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;

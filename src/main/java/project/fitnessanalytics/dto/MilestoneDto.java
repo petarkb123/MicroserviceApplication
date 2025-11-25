@@ -1,7 +1,6 @@
 package project.fitnessanalytics.dto;
 
 import project.fitnessanalytics.dto.CreateMilestoneRequest.MilestoneType;
-
 import java.time.LocalDate;
 import java.util.UUID;
 

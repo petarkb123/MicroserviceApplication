@@ -15,11 +15,9 @@ import project.fitnessanalytics.model.Equipment;
 import project.fitnessanalytics.model.MuscleGroup;
 import project.fitnessanalytics.model.WorkoutSession;
 import project.fitnessanalytics.service.SyncService;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;

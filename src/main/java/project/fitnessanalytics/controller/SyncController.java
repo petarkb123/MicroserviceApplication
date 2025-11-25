@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.*;
 import project.fitnessanalytics.dto.sync.ExerciseSyncRequest;
 import project.fitnessanalytics.dto.sync.WorkoutSyncRequest;
 import project.fitnessanalytics.service.SyncService;
-
 import java.util.List;
 import java.util.UUID;
 
