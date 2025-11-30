@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public record WorkoutSetSyncRequest(
-        @NotNull UUID id,
+        UUID id,
         @NotNull UUID exerciseId,
         @Positive Integer reps,
         @NotNull @Positive BigDecimal weight,
