@@ -8,6 +8,8 @@ A Spring Boot microservice for tracking fitness workouts and calculating analyti
 - Spring Boot 3.4.5
 - MySQL 8.0
 - Maven
+- Spring Cache (Simple cache implementation)
+- Spring Scheduling (Cron and fixed delay jobs)
 
 Runs on port `1010` by default.
 
@@ -42,6 +44,8 @@ The database `fitness_analytics` will be created automatically.
 - Progressive overload tracking
 - Personal records (max weight, reps, volume)
 - Automatic and custom milestones
+- Caching for improved performance
+- Scheduled tasks for automatic data processing
 
 ## API Endpoints
 
@@ -74,6 +78,15 @@ mvn test
 ## How It Works
 
 The main fitness app sends workout data to this service via sync endpoints under `/api/analytics/internal`. This service then calculates all the analytics and tracks milestones.
+
+## Integrations
+
+- **Main Fitness Application**: Receives workout data via REST API sync endpoints
+- **MySQL Database**: Stores workout sessions, exercises, sets, and analytics snapshots
+- **Caching**: Uses Spring Cache to improve response times for frequently accessed analytics
+- **Scheduled Jobs**: 
+  - Weekly stats recomputation (runs every Monday at 2 AM via cron)
+  - Old snapshot cleanup (runs every hour via fixed delay)
 
 ## Troubleshooting
 

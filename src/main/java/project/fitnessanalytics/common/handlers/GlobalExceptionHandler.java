@@ -2,21 +2,23 @@ package project.fitnessanalytics.common.handlers;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.ModelAndView;
+import project.fitnessanalytics.common.exception.ResourceNotFoundException;
+import project.fitnessanalytics.common.exception.UnauthorizedOperationException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-@RestControllerAdvice
+@ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+    public ModelAndView handleValidationExceptions(MethodArgumentNotValidException ex) {
         log.warn("Validation error: {}", ex.getMessage());
         
         Map<String, String> errors = new HashMap<>();
@@ -24,52 +26,87 @@ public class GlobalExceptionHandler {
             errors.put(error.getField(), error.getDefaultMessage())
         );
         
-        Map<String, Object> response = new HashMap<>();
-        response.put("timestamp", Instant.now());
-        response.put("status", HttpStatus.BAD_REQUEST.value());
-        response.put("error", "Validation Failed");
-        response.put("message", "Invalid request parameters");
-        response.put("errors", errors);
+        ModelAndView modelAndView = new ModelAndView("error");
+        modelAndView.setStatus(HttpStatus.BAD_REQUEST);
+        modelAndView.addObject("status", HttpStatus.BAD_REQUEST.value());
+        modelAndView.addObject("error", "Validation Failed");
+        modelAndView.addObject("message", "Invalid request parameters");
+        modelAndView.addObject("errors", errors);
+        modelAndView.addObject("timestamp", Instant.now());
         
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return modelAndView;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+    public ModelAndView handleIllegalArgument(IllegalArgumentException ex) {
         log.warn("Illegal argument: {}", ex.getMessage());
         
-        Map<String, Object> response = new HashMap<>();
-        response.put("timestamp", Instant.now());
-        response.put("status", HttpStatus.BAD_REQUEST.value());
-        response.put("error", "Bad Request");
-        response.put("message", ex.getMessage());
+        ModelAndView modelAndView = new ModelAndView("error");
+        modelAndView.setStatus(HttpStatus.BAD_REQUEST);
+        modelAndView.addObject("status", HttpStatus.BAD_REQUEST.value());
+        modelAndView.addObject("error", "Bad Request");
+        modelAndView.addObject("message", ex.getMessage());
+        modelAndView.addObject("timestamp", Instant.now());
         
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return modelAndView;
     }
 
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException ex) {
+    public ModelAndView handleResponseStatusException(ResponseStatusException ex) {
         log.warn("Response status exception: {}", ex.getMessage());
         
-        Map<String, Object> response = new HashMap<>();
-        response.put("timestamp", Instant.now());
-        response.put("status", ex.getStatusCode().value());
-        response.put("error", ex.getStatusCode());
-        response.put("message", ex.getReason());
+        HttpStatus httpStatus = HttpStatus.resolve(ex.getStatusCode().value());
+        String errorPhrase = httpStatus != null ? httpStatus.getReasonPhrase() : "Error";
         
-        return ResponseEntity.status(ex.getStatusCode()).body(response);
+        ModelAndView modelAndView = new ModelAndView("error");
+        modelAndView.setStatus(ex.getStatusCode());
+        modelAndView.addObject("status", ex.getStatusCode().value());
+        modelAndView.addObject("error", errorPhrase);
+        modelAndView.addObject("message", ex.getReason() != null ? ex.getReason() : errorPhrase);
+        modelAndView.addObject("timestamp", Instant.now());
+        
+        return modelAndView;
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ModelAndView handleResourceNotFound(ResourceNotFoundException ex) {
+        log.warn("Resource not found: {}", ex.getMessage());
+        
+        ModelAndView modelAndView = new ModelAndView("error");
+        modelAndView.setStatus(HttpStatus.NOT_FOUND);
+        modelAndView.addObject("status", HttpStatus.NOT_FOUND.value());
+        modelAndView.addObject("error", "Resource Not Found");
+        modelAndView.addObject("message", ex.getMessage());
+        modelAndView.addObject("timestamp", Instant.now());
+        
+        return modelAndView;
+    }
+
+    @ExceptionHandler(UnauthorizedOperationException.class)
+    public ModelAndView handleUnauthorizedOperation(UnauthorizedOperationException ex) {
+        log.warn("Unauthorized operation: {}", ex.getMessage());
+        
+        ModelAndView modelAndView = new ModelAndView("error");
+        modelAndView.setStatus(HttpStatus.FORBIDDEN);
+        modelAndView.addObject("status", HttpStatus.FORBIDDEN.value());
+        modelAndView.addObject("error", "Forbidden");
+        modelAndView.addObject("message", ex.getMessage());
+        modelAndView.addObject("timestamp", Instant.now());
+        
+        return modelAndView;
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+    public ModelAndView handleGenericException(Exception ex) {
         log.error("Unexpected error occurred", ex);
         
-        Map<String, Object> response = new HashMap<>();
-        response.put("timestamp", Instant.now());
-        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        response.put("error", "Internal Server Error");
-        response.put("message", "An unexpected error occurred");
+        ModelAndView modelAndView = new ModelAndView("error");
+        modelAndView.setStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        modelAndView.addObject("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        modelAndView.addObject("error", "Internal Server Error");
+        modelAndView.addObject("message", "An unexpected error occurred");
+        modelAndView.addObject("timestamp", Instant.now());
         
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        return modelAndView;
     }
 }

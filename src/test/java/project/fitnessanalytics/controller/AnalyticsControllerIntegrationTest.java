@@ -164,6 +164,9 @@ class AnalyticsControllerIntegrationTest {
         LocalDate start = LocalDate.now();
         LocalDate end = LocalDate.now().minusDays(7);
 
+        when(analyticsService.getWeeklyStats(eq(userId), eq(start), eq(end)))
+                .thenThrow(new IllegalArgumentException("Start date must be before end date"));
+
         mockMvc.perform(get("/api/analytics/weekly")
                         .header("X-User-Id", userId.toString())
                         .param("from", start.toString())
@@ -191,7 +194,7 @@ class AnalyticsControllerIntegrationTest {
                 false
         );
 
-        when(analyticsService.createMilestone(any(CreateMilestoneRequest.class)))
+        when(analyticsService.createMilestone(eq(userId), any(CreateMilestoneRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(post("/api/analytics/milestones")

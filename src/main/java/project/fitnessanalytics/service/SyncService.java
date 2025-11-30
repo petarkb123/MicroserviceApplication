@@ -2,6 +2,7 @@ package project.fitnessanalytics.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.fitnessanalytics.dto.sync.ExerciseSyncRequest;
@@ -25,8 +26,10 @@ public class SyncService {
     private final WorkoutSessionRepository sessionRepo;
     private final WorkoutSetRepository setRepo;
 
+    @CacheEvict(value = {"volumeTrends", "progressiveOverload", "personalRecords"}, allEntries = true)
     @Transactional
     public void syncExercises(List<ExerciseSyncRequest> exercises) {
+        log.info("Syncing {} exercises", exercises != null ? exercises.size() : 0);
         if (exercises == null || exercises.isEmpty()) {
             return;
         }
@@ -52,8 +55,10 @@ public class SyncService {
         exercise.setCreatedOn(req.createdOn());
     }
 
+    @CacheEvict(value = {"volumeTrends", "progressiveOverload", "personalRecords", "weeklyStats", "sessionSummaries"}, allEntries = true)
     @Transactional
     public void deleteExercise(UUID exerciseId) {
+        log.info("Deleting exercise {}", exerciseId);
         if (exerciseId == null) {
             return;
         }
@@ -61,8 +66,10 @@ public class SyncService {
         exerciseRepo.deleteById(exerciseId);
     }
 
+    @CacheEvict(value = {"weeklyStats", "sessionSummaries", "trainingFrequency", "volumeTrends", "progressiveOverload", "personalRecords"}, allEntries = true)
     @Transactional
     public void syncWorkout(WorkoutSyncRequest request) {
+        log.info("Syncing workout {}", request != null ? request.id() : null);
         if (request == null || request.id() == null) {
             return;
         }
@@ -106,8 +113,10 @@ public class SyncService {
                 .build();
     }
 
+    @CacheEvict(value = {"weeklyStats", "sessionSummaries", "trainingFrequency", "volumeTrends", "progressiveOverload", "personalRecords"}, allEntries = true)
     @Transactional
     public void deleteWorkout(UUID sessionId) {
+        log.info("Deleting workout session {}", sessionId);
         if (sessionId == null) {
             return;
         }

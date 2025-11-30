@@ -17,6 +17,10 @@ import project.fitnessanalytics.repository.MilestoneRepository;
 import project.fitnessanalytics.repository.WeeklySummarySnapshotRepository;
 import project.fitnessanalytics.repository.WorkoutSessionRepository;
 import project.fitnessanalytics.repository.WorkoutSetRepository;
+import project.fitnessanalytics.common.exception.ResourceNotFoundException;
+import project.fitnessanalytics.common.exception.UnauthorizedOperationException;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Propagation;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -69,7 +73,12 @@ public class AnalyticsService {
             "Dedicated (12 in 30)"
     );
 
+    @Cacheable(value = "weeklyStats", key = "#userId + '_' + #from + '_' + #to")
     public WeeklySummaryResponse getWeeklyStats(UUID userId, LocalDate from, LocalDate to) {
+        log.info("Fetching weekly stats for user {} from {} to {}", userId, from, to);
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("Start date must be before end date");
+        }
         List<WorkoutSession> sessions = findFinishedSessionsInRange(userId, from, to);
 
         Map<UUID, WorkoutSession> byId = sessions.stream()
@@ -108,9 +117,16 @@ public class AnalyticsService {
         return new WeeklySummaryResponse(from, to, dayStats);
     }
 
+    @CacheEvict(value = "weeklyStats", key = "#userId + '_' + (T(java.time.LocalDate).now().with(T(java.time.DayOfWeek).MONDAY)) + '_' + (T(java.time.LocalDate).now().with(T(java.time.DayOfWeek).MONDAY).plusDays(6))")
     @Transactional
-    public WeeklySummaryResponse recomputeWeeklyStats(UUID userId, LocalDate from, LocalDate to) {
-        WeeklySummaryResponse summary = getWeeklyStats(userId, from, to);
+    public WeeklySummaryResponse recomputeWeeklyStats(UUID userId, RecomputeWeeklyRequest request) {
+        LocalDate start = request.from() != null ? request.from() : LocalDate.now().with(DayOfWeek.MONDAY);
+        LocalDate end = request.to() != null ? request.to() : start.plusDays(6);
+        log.info("Recomputing weekly stats for user {} from {} to {}", userId, start, end);
+        if (start.isAfter(end)) {
+            throw new IllegalArgumentException("Start date must be before end date");
+        }
+        WeeklySummaryResponse summary = getWeeklyStats(userId, start, end);
 
         int totalSessions = summary.days().stream().mapToInt(WeeklySummaryResponse.DayStat::sessions).sum();
         int totalSets = summary.days().stream().mapToInt(WeeklySummaryResponse.DayStat::sets).sum();
@@ -143,7 +159,9 @@ public class AnalyticsService {
         return summary;
     }
 
+    @Cacheable(value = "sessionSummaries", key = "#userId + '_' + #from + '_' + #to")
     public List<SessionSummaryResponse> getSessionSummaries(UUID userId, LocalDate from, LocalDate to) {
+        log.info("Fetching session summaries for user {} from {} to {}", userId, from, to);
         List<WorkoutSession> sessions = findFinishedSessionsInRange(userId, from, to);
 
         Map<UUID, List<WorkoutSet>> setsBySession = setRepo.findAllBySessionIdIn(
@@ -162,7 +180,12 @@ public class AnalyticsService {
         return out;
     }
 
+    @Cacheable(value = "trainingFrequency", key = "#userId + '_' + #from + '_' + #to")
     public TrainingFrequencyResponse getTrainingFrequency(UUID userId, LocalDate from, LocalDate to) {
+        log.info("Fetching training frequency for user {} from {} to {}", userId, from, to);
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("Start date must be before end date");
+        }
         List<WorkoutSession> sessions = findFinishedSessionsInRange(userId, from, to);
 
         if (sessions.isEmpty()) {
@@ -220,7 +243,12 @@ public class AnalyticsService {
         return new TrainingFrequencyResponse(totalWorkouts, avgPerWeek, byDayOfWeek, weeklyBreakdown, longestStreak, currentStreak);
     }
 
+    @Cacheable(value = "volumeTrends", key = "#userId + '_' + #from + '_' + #to")
     public List<ExerciseVolumeTrendDto> getExerciseVolumeTrends(UUID userId, LocalDate from, LocalDate to) {
+        log.info("Fetching exercise volume trends for user {} from {} to {}", userId, from, to);
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("Start date must be before end date");
+        }
         List<WorkoutSession> sessions = findFinishedSessionsInRange(userId, from, to);
 
         if (sessions.isEmpty()) {
@@ -320,7 +348,12 @@ public class AnalyticsService {
         return trends;
     }
 
+    @Cacheable(value = "progressiveOverload", key = "#userId + '_' + #from + '_' + #to")
     public List<ProgressiveOverloadDto> getProgressiveOverload(UUID userId, LocalDate from, LocalDate to) {
+        log.info("Fetching progressive overload data for user {} from {} to {}", userId, from, to);
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("Start date must be before end date");
+        }
         List<WorkoutSession> sessions = findFinishedSessionsInRange(userId, from, to);
 
         if (sessions.isEmpty()) {
@@ -432,9 +465,10 @@ public class AnalyticsService {
         return overloads;
     }
 
+    @Cacheable(value = "personalRecords", key = "#userId")
     @Transactional
     public PersonalRecordsDto getPersonalRecords(UUID userId) {
-        log.info("Getting personal records for user {} - checking for milestones", userId);
+        log.info("Fetching personal records for user {}", userId);
         List<WorkoutSession> allSessions = sessionRepo.findByUserIdAndStatusOrderByStartedAtDesc(userId, WorkoutSession.SessionStatus.FINISHED);
 
         if (allSessions.isEmpty()) {
@@ -616,8 +650,13 @@ public class AnalyticsService {
         expectedAutoTitles.add(title);
         }
 
+    @CacheEvict(value = {"personalRecords", "milestones"}, key = "#userId")
     @Transactional
-    public MilestoneDto createMilestone(CreateMilestoneRequest request) {
+    public MilestoneDto createMilestone(UUID userId, CreateMilestoneRequest request) {
+        log.info("Creating milestone for user {}", userId);
+        if (!request.userId().equals(userId)) {
+            throw new UnauthorizedOperationException("Cannot create milestone for another user");
+        }
         Milestone milestone = Milestone.builder()
                 .userId(request.userId())
                 .title(request.title())
@@ -638,7 +677,9 @@ public class AnalyticsService {
         );
     }
 
+    @Cacheable(value = "milestones", key = "#userId")
     public List<MilestoneDto> getUserMilestones(UUID userId) {
+        log.info("Fetching milestones for user {}", userId);
         return milestoneRepo.findByUserIdOrderByAchievedDateDesc(userId).stream()
                 .map(m -> new MilestoneDto(
                         m.getId(),
@@ -651,13 +692,15 @@ public class AnalyticsService {
                 .toList();
     }
 
+    @CacheEvict(value = {"personalRecords", "milestones"}, key = "#userId")
     @Transactional
     public MilestoneDto updateMilestone(UUID milestoneId, UUID userId, UpdateMilestoneRequest request) {
+        log.info("Updating milestone {} for user {}", milestoneId, userId);
         Milestone milestone = milestoneRepo.findById(milestoneId)
-                .orElseThrow(() -> new IllegalArgumentException("Milestone not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Milestone not found"));
         
         if (!milestone.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("Milestone does not belong to user");
+            throw new UnauthorizedOperationException("Milestone does not belong to user");
         }
         
         milestone.setTitle(request.title());
@@ -676,17 +719,19 @@ public class AnalyticsService {
         );
     }
 
+    @CacheEvict(value = {"personalRecords", "milestones"}, key = "#userId")
     @Transactional
     public void deleteMilestone(UUID milestoneId, UUID userId) {
+        log.info("Deleting milestone {} for user {}", milestoneId, userId);
         Milestone milestone = milestoneRepo.findById(milestoneId)
-                .orElseThrow(() -> new IllegalArgumentException("Milestone not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Milestone not found"));
         
         if (!milestone.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("Milestone does not belong to user");
+            throw new UnauthorizedOperationException("Milestone does not belong to user");
         }
 
         if (milestone.isSystemGenerated() || AUTO_MILESTONE_TITLES.contains(milestone.getTitle())) {
-            throw new IllegalArgumentException("System-generated milestones cannot be removed manually");
+            throw new UnauthorizedOperationException("System-generated milestones cannot be removed manually");
         }
         
         milestoneRepo.delete(milestone);

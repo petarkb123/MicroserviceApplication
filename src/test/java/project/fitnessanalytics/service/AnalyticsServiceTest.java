@@ -292,7 +292,8 @@ class AnalyticsServiceTest {
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
         when(weeklySummarySnapshotRepository.findByUserIdAndWeekStart(userId, start)).thenReturn(Optional.empty());
 
-        WeeklySummaryResponse response = analyticsService.recomputeWeeklyStats(userId, start, end);
+        RecomputeWeeklyRequest request = new RecomputeWeeklyRequest(start, end);
+        WeeklySummaryResponse response = analyticsService.recomputeWeeklyStats(userId, request);
 
         assertNotNull(response);
         verify(weeklySummarySnapshotRepository).save(any());
@@ -330,7 +331,7 @@ class AnalyticsServiceTest {
 
         when(milestoneRepo.save(any(Milestone.class))).thenReturn(milestone);
 
-        MilestoneDto result = analyticsService.createMilestone(request);
+        MilestoneDto result = analyticsService.createMilestone(userId, request);
 
         assertNotNull(result);
         assertEquals("First 100kg bench", result.title());
@@ -411,7 +412,7 @@ class AnalyticsServiceTest {
 
         when(milestoneRepo.findById(milestoneId)).thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(project.fitnessanalytics.common.exception.ResourceNotFoundException.class, () ->
                 analyticsService.updateMilestone(milestoneId, userId, request));
         verify(milestoneRepo, never()).save(any(Milestone.class));
     }
@@ -439,7 +440,7 @@ class AnalyticsServiceTest {
 
         when(milestoneRepo.findById(milestoneId)).thenReturn(Optional.of(milestone));
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(project.fitnessanalytics.common.exception.UnauthorizedOperationException.class, () ->
                 analyticsService.updateMilestone(milestoneId, userId, request));
         verify(milestoneRepo, never()).save(any(Milestone.class));
     }
@@ -470,7 +471,7 @@ class AnalyticsServiceTest {
         UUID milestoneId = UUID.randomUUID();
         when(milestoneRepo.findById(milestoneId)).thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(project.fitnessanalytics.common.exception.ResourceNotFoundException.class, () ->
                 analyticsService.deleteMilestone(milestoneId, userId));
         verify(milestoneRepo, never()).delete(any(Milestone.class));
     }
@@ -491,7 +492,7 @@ class AnalyticsServiceTest {
 
         when(milestoneRepo.findById(milestoneId)).thenReturn(Optional.of(milestone));
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(project.fitnessanalytics.common.exception.UnauthorizedOperationException.class, () ->
                 analyticsService.deleteMilestone(milestoneId, userId));
         verify(milestoneRepo, never()).delete(any(Milestone.class));
     }
@@ -511,7 +512,7 @@ class AnalyticsServiceTest {
 
         when(milestoneRepo.findById(milestoneId)).thenReturn(Optional.of(milestone));
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(project.fitnessanalytics.common.exception.UnauthorizedOperationException.class, () ->
                 analyticsService.deleteMilestone(milestoneId, userId));
         verify(milestoneRepo, never()).delete(any(Milestone.class));
     }
