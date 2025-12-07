@@ -1,7 +1,5 @@
 package project.fitnessanalytics.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -11,10 +9,8 @@ import project.fitnessanalytics.model.Exercise;
 import project.fitnessanalytics.model.WorkoutSession;
 import project.fitnessanalytics.model.WorkoutSet;
 import project.fitnessanalytics.model.milestone.Milestone;
-import project.fitnessanalytics.model.summary.WeeklySummarySnapshot;
 import project.fitnessanalytics.repository.ExerciseRepository;
 import project.fitnessanalytics.repository.MilestoneRepository;
-import project.fitnessanalytics.repository.WeeklySummarySnapshotRepository;
 import project.fitnessanalytics.repository.WorkoutSessionRepository;
 import project.fitnessanalytics.repository.WorkoutSetRepository;
 import project.fitnessanalytics.common.exception.ResourceNotFoundException;
@@ -42,8 +38,6 @@ public class AnalyticsService {
     private final WorkoutSetRepository setRepo;
     private final ExerciseRepository exerciseRepo;
     private final MilestoneRepository milestoneRepo;
-    private final WeeklySummarySnapshotRepository weeklySummaryRepo;
-    private final ObjectMapper objectMapper;
 
     private static final int MILESTONE_SESSIONS_GETTING_STARTED = 25;
     private static final int MILESTONE_SESSIONS_DEDICATED = 50;
@@ -126,37 +120,7 @@ public class AnalyticsService {
         if (start.isAfter(end)) {
             throw new IllegalArgumentException("Start date must be before end date");
         }
-        WeeklySummaryResponse summary = getWeeklyStats(userId, start, end);
-
-        int totalSessions = summary.days().stream().mapToInt(WeeklySummaryResponse.DayStat::sessions).sum();
-        int totalSets = summary.days().stream().mapToInt(WeeklySummaryResponse.DayStat::sets).sum();
-        int totalReps = summary.days().stream().mapToInt(WeeklySummaryResponse.DayStat::reps).sum();
-        BigDecimal totalVolume = summary.days().stream()
-                .map(WeeklySummaryResponse.DayStat::volume)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        WeeklySummarySnapshot snapshot = weeklySummaryRepo
-                .findByUserIdAndWeekStart(userId, summary.from())
-                .orElseGet(WeeklySummarySnapshot::new);
-
-        snapshot.setUserId(userId);
-        snapshot.setWeekStart(summary.from());
-        snapshot.setWeekEnd(summary.to());
-        snapshot.setTotalSessions(totalSessions);
-        snapshot.setTotalSets(totalSets);
-        snapshot.setTotalReps(totalReps);
-        snapshot.setTotalVolume(totalVolume);
-        snapshot.setUpdatedAt(LocalDateTime.now());
-        try {
-            snapshot.setPayloadJson(objectMapper.writeValueAsString(summary));
-        } catch (JsonProcessingException e) {
-            log.warn("Failed to serialize weekly summary for user {}: {}", userId, e.getMessage());
-            snapshot.setPayloadJson(null);
-        }
-
-        weeklySummaryRepo.save(snapshot);
-        return summary;
+        return getWeeklyStats(userId, start, end);
     }
 
     @Cacheable(value = "sessionSummaries", key = "#userId + '_' + #from + '_' + #to")

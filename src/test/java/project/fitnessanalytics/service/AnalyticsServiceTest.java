@@ -13,11 +13,9 @@ import project.fitnessanalytics.model.Exercise;
 import project.fitnessanalytics.model.MuscleGroup;
 import project.fitnessanalytics.model.WorkoutSession;
 import project.fitnessanalytics.model.WorkoutSet;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import project.fitnessanalytics.model.milestone.Milestone;
 import project.fitnessanalytics.repository.ExerciseRepository;
 import project.fitnessanalytics.repository.MilestoneRepository;
-import project.fitnessanalytics.repository.WeeklySummarySnapshotRepository;
 import project.fitnessanalytics.repository.WorkoutSessionRepository;
 import project.fitnessanalytics.repository.WorkoutSetRepository;
 import java.math.BigDecimal;
@@ -42,12 +40,6 @@ class AnalyticsServiceTest {
 
     @Mock
     private MilestoneRepository milestoneRepo;
-
-    @Mock
-    private WeeklySummarySnapshotRepository weeklySummarySnapshotRepository;
-
-    @Mock
-    private ObjectMapper objectMapper;
 
     @InjectMocks
     private AnalyticsService analyticsService;
@@ -274,7 +266,7 @@ class AnalyticsServiceTest {
     }
 
     @Test
-    void recomputeWeeklyStats_savesSnapshot() throws Exception {
+    void recomputeWeeklyStats_returnsWeeklyStats() throws Exception {
         LocalDate start = LocalDate.now().with(java.time.DayOfWeek.MONDAY);
         LocalDate end = start.plusDays(6);
 
@@ -289,14 +281,11 @@ class AnalyticsServiceTest {
         when(setRepo.findAllBySessionIdIn(anyList())).thenReturn(List.of(
                 createSet(session.getId(), exercise1.getId(), 8, 120.0)
         ));
-        when(objectMapper.writeValueAsString(any())).thenReturn("{}");
-        when(weeklySummarySnapshotRepository.findByUserIdAndWeekStart(userId, start)).thenReturn(Optional.empty());
 
         RecomputeWeeklyRequest request = new RecomputeWeeklyRequest(start, end);
         WeeklySummaryResponse response = analyticsService.recomputeWeeklyStats(userId, request);
 
         assertNotNull(response);
-        verify(weeklySummarySnapshotRepository).save(any());
     }
 
     private WorkoutSet createSet(UUID sessionId, UUID exerciseId, int reps, double weight) {
