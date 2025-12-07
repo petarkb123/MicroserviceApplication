@@ -49,7 +49,7 @@ public class WeeklySummarySnapshot {
     private BigDecimal totalVolume;
 
     @Lob
-    @Column(name = "payload_json")
+    @Column(name = "payload_json", columnDefinition = "LONGTEXT")
     private String payloadJson;
 
     @Column(name = "updated_at", nullable = false)
